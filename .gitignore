@@ -1,0 +1,11 @@
+node_modules
+artifacts
+cache
+cache_hardhat
+out
+coverage
+.env
+.env.local
+.DS_Store
+*.log
+broadcast

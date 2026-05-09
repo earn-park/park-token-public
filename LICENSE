@@ -1,0 +1,108 @@
+Business Source License 1.1
+
+License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB Corporation Ab.
+
+Parameters
+
+Licensor:             EarnPark Ltd.
+Licensed Work:        Park Token (PARK) smart contracts
+                      The Licensed Work is (c) 2026 EarnPark Ltd.
+Additional Use Grant: You may make production use of the Licensed Work,
+                      provided such use does not include offering the
+                      Licensed Work to third parties on a hosted or
+                      embedded basis in order to compete with EarnPark.
+Change Date:          Four years from the date the Licensed Work is
+                      published.
+Change License:       MIT
+
+For information about alternative licensing arrangements for the Licensed
+Work, please contact: legal@earnpark.com
+
+Notice
+
+The Business Source License (this document, or the "License") is not an
+Open Source license. However, the Licensed Work will eventually be made
+available under an Open Source License, as stated in this License.
+
+License Grant
+
+Subject to the terms and conditions of this License, the Licensor hereby
+grants you a non-exclusive, royalty-free, worldwide, non-sublicensable,
+non-transferable license to use, copy, distribute, make available, and
+prepare derivative works of the Licensed Work, in each case subject to
+the limitations and conditions below.
+
+Limitations
+
+You may not provide the Licensed Work to third parties as a hosted or
+embedded product or service, or make production use of the Licensed Work
+in any manner that makes the Licensed Work available to third parties,
+except in each case: (1) as part of your non-commercial research or
+personal project; or (2) as part of your EarnPark integration.
+
+You may not alter, remove, or obscure any licensing, copyright, or other
+notices of the Licensor in the Licensed Work. Any use of the Licensor's
+trademarks is subject to applicable law.
+
+Notice of each change to the Licensed Work must retain the above "License
+text copyright" and "Parameters" section.
+
+Covenants of Licensor
+
+In consideration of the right to use this License's text and the
+"Business Source License" name and trademark, Licensor covenants to
+MariaDB, and to all recipients of the Licensed Work to be provided by
+Licensor:
+
+1. To specify as the Change License the GPL Version 2.0 or any later
+   version, or a license that is compatible with GPL Version 2.0 or a
+   later version, where "compatible" means that software provided under
+   the Change License can be included in a program with software provided
+   under GPL Version 2.0 or a later version. Licensor may specify
+   additional Change Licenses without limitation.
+
+2. To either: (a) specify an additional grant of rights to use that does
+   not impose any additional restriction on the right granted in this
+   License, as the Additional Use Grant; or (b) insert the text "None".
+
+3. To specify a Change Date.
+
+4. Not to modify this License in any other way.
+
+Termination
+
+This License will automatically terminate and Licensor may immediately
+terminate this License if you fail to comply with any of its terms and
+conditions. Additionally, if you fail to comply with any of its terms
+and conditions, then all rights granted to you under this License as of
+the date of such failure will be null and void. Upon any termination of
+this License:
+
+1. All rights granted to you under this License will immediately
+   terminate.
+
+2. You must immediately cease all use of the Licensed Work.
+
+3. If you are an employer of a person who is subject to this License,
+   you agree to cause such person to comply with this License.
+
+For purposes of this License, "production use" does not include making
+use of the Licensed Work for testing or development purposes.
+
+Disclaimer of Warranties and Limitation of Liability
+
+THE LICENSED WORK IS PROVIDED "AS IS." LICENSOR HEREBY DISCLAIMS ALL
+WARRANTIES AND CONDITIONS, EXPRESS OR IMPLIED, INCLUDING (WITHOUT
+LIMITATION) WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, NON-INFRINGEMENT, AND TITLE.
+
+LICENSOR WILL NOT BE LIABLE TO YOU FOR ANY DAMAGES ARISING OUT OF OR
+RELATED TO YOUR USE OR INABILITY TO USE THE LICENSED WORK, INCLUDING
+BUT NOT LIMITED TO LOST PROFITS, LOSS OF ANTICIPATED SAVINGS, BUSINESS
+DISRUPTION, LOSS OF GOODWILL, LOSS OF DATA, OR INDIRECT, SPECIAL,
+INCIDENTAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND,
+EVEN IF LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+THE LIMITATION OF LIABILITY SET FORTH ABOVE SHALL APPLY TO THE MAXIMUM
+EXTENT PERMITTED BY APPLICABLE LAW.

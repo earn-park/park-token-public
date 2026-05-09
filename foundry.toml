@@ -1,0 +1,31 @@
+# Foundry version pin: see docs/AUDIT-SCOPE.md "Compiler invariants"
+[profile.default]
+src = "contracts"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.34"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 10000
+via_ir = true
+
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+  "forge-std/=lib/forge-std/src/"
+]
+
+[invariant]
+runs = 1000
+depth = 64
+fail_on_revert = false
+call_override = false
+shrink_run_limit = 2000
+
+[lint]
+# rescueETH uses all-caps ETH suffix to match ERC-20 ecosystem naming conventions
+# (analogous to rescueERC20). The mixed-case-function lint is suppressed project-wide
+# because `exclude_lints` cannot be scoped per-file in this forge version.
+exclude_lints = ["mixed-case-function"]

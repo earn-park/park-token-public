@@ -1,0 +1,40 @@
+{
+  "name": "park-token-bsc",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "hh:compile": "hardhat compile",
+    "hh:typecheck": "tsc --noEmit",
+    "hh:test": "node --import tsx --test 'scripts/**/*.test.ts'",
+    "hh:deploy:base:bsc": "npx hardhat compile && TARGET_CHAIN=bsc node --import tsx scripts/deploy/base/deploy-bsc.ts",
+    "hh:calldata:base:bsc": "npx hardhat compile && TARGET_CHAIN=bsc node --import tsx scripts/deploy/base/build-bsc-calldata.ts",
+    "hh:verify:base:bsc": "hardhat verify --network bsc",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "deps:check-exact": "node -e \"const p = JSON.parse(require('fs').readFileSync('package.json','utf8')); const bad = Object.entries({...p.dependencies,...p.devDependencies}).filter(([,v])=>/[\\^~*>]/.test(v)); if(bad.length){console.error('Found range-versioned deps:', bad);process.exit(1)} else { console.log('All deps exact-pinned'); }\""
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "4.0.9",
+    "@nomicfoundation/hardhat-foundry": "3.0.2",
+    "@nomicfoundation/hardhat-verify": "3.0.15",
+    "@nomicfoundation/hardhat-viem": "3.0.6",
+    "@types/node": "25.6.0",
+    "@typescript-eslint/parser": "8.59.0",
+    "dotenv": "17.4.2",
+    "eslint": "10.2.1",
+    "ethers": "6.16.0",
+    "hardhat": "3.4.1",
+    "tsx": "4.21.0",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "viem": "2.48.4"
+  },
+  "overrides": {
+    "lodash-es": "4.18.1",
+    "fast-xml-parser": "5.7.2"
+  }
+}
