@@ -22,7 +22,7 @@
     "@nomicfoundation/hardhat-foundry": "3.0.2",
     "@nomicfoundation/hardhat-verify": "3.0.15",
     "@nomicfoundation/hardhat-viem": "3.0.6",
-    "@types/node": "25.6.0",
+    "@types/node": "22.19.18",
     "@typescript-eslint/parser": "8.59.0",
     "dotenv": "17.4.2",
     "eslint": "10.2.1",

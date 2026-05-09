@@ -140,7 +140,20 @@ async function main(): Promise<void> {
   const proxyAddr = getAddress(requireEnv("PROXY_ADDRESS"));
   const timelockAddr = getAddress(requireEnv("TIMELOCK_ADDRESS"));
   const newImplAddr = getAddress(requireEnv("NEW_IMPL_ADDRESS"));
-  const reinitSignature = requireEnv("REINIT_SIGNATURE"); // e.g. 'reinitialize()'
+  // REINIT_CALLDATA is the ABI-encoded full reinitializer call (selector + args).
+  // For zero-arg reinits, this is the 4-byte selector. For parametrized
+  // reinits, build via `cast calldata 'fn(args)' <args...>` and pass the
+  // entire 0x-prefixed hex string. For a no-reinit upgrade, pass "0x" or
+  // omit (defaults to empty bytes — equivalent to upgradeTo).
+  //
+  // REINIT_SIGNATURE is the legacy fallback used when REINIT_CALLDATA is
+  // unset; it ONLY supports zero-arg signatures (e.g. "reinitialize()").
+  // The script aborts if REINIT_SIGNATURE contains arguments and
+  // REINIT_CALLDATA is missing — preventing the H-4 mega-review bug where
+  // the script would silently truncate parametrized signatures to a
+  // 4-byte selector and queue malformed Timelock calldata.
+  const reinitCalldataRaw = process.env["REINIT_CALLDATA"];
+  const reinitSignatureRaw = process.env["REINIT_SIGNATURE"]; // optional fallback
   const saltLabel = requireEnv("UPGRADE_SALT_LABEL");
   const predecessor = (process.env["TIMELOCK_PREDECESSOR"] ?? `0x${"0".repeat(64)}`) as Hex;
 
@@ -156,16 +169,42 @@ async function main(): Promise<void> {
     throw new Error(`Wrong chainId ${chainId}, expected ${resolved.chain.id}`);
   }
 
-  // Build the reinit calldata. Keep it simple — only supports zero-arg reinits.
-  // For parametrized reinitializers, extend this script or build calldata externally.
-  const reinitSelector = keccak256(stringToBytes(reinitSignature)).slice(0, 10) as Hex;
-  console.log(`Reinit signature: ${reinitSignature}`);
-  console.log(`Reinit selector:  ${reinitSelector}`);
+  // Resolve reinit calldata from REINIT_CALLDATA (preferred) or REINIT_SIGNATURE
+  // (zero-arg fallback only). Empty bytes ("0x") = no reinitializer call.
+  let reinitCalldata: Hex;
+  if (reinitCalldataRaw !== undefined) {
+    if (!/^0x[0-9a-fA-F]*$/.test(reinitCalldataRaw)) {
+      throw new Error(`REINIT_CALLDATA must be 0x-prefixed hex; got "${reinitCalldataRaw}"`);
+    }
+    if (reinitCalldataRaw.length % 2 !== 0) {
+      throw new Error(`REINIT_CALLDATA hex length odd; got ${reinitCalldataRaw.length}`);
+    }
+    reinitCalldata = reinitCalldataRaw as Hex;
+    console.log(`Reinit calldata:  ${reinitCalldata} (${(reinitCalldata.length - 2) / 2} bytes)`);
+  } else if (reinitSignatureRaw !== undefined) {
+    // Legacy zero-arg fallback. Reject if signature contains arguments — passing
+    // only the 4-byte selector for a parametrized fn produces malformed calldata.
+    const argsMatch = reinitSignatureRaw.match(/\((.*)\)/);
+    const argsList = argsMatch?.[1]?.trim() ?? "";
+    if (argsList.length > 0) {
+      throw new Error(
+        `REINIT_SIGNATURE "${reinitSignatureRaw}" has arguments — set REINIT_CALLDATA ` +
+          `to the full ABI-encoded calldata instead (build via cast calldata '${reinitSignatureRaw}' <args...>). ` +
+          `Selector-only invocation of a parametrized reinitializer would queue malformed Timelock calldata (mega-review H-4).`
+      );
+    }
+    reinitCalldata = keccak256(stringToBytes(reinitSignatureRaw)).slice(0, 10) as Hex;
+    console.log(`Reinit signature: ${reinitSignatureRaw}`);
+    console.log(`Reinit calldata:  ${reinitCalldata} (4-byte selector for zero-arg reinit)`);
+  } else {
+    reinitCalldata = "0x";
+    console.log(`Reinit calldata:  0x (no reinitializer call — equivalent to upgradeTo)`);
+  }
 
   const upgradeCalldata = encodeFunctionData({
     abi: UPGRADE_ABI,
     functionName: "upgradeToAndCall",
-    args: [newImplAddr, reinitSelector]
+    args: [newImplAddr, reinitCalldata]
   });
 
   const salt = keccak256(stringToBytes(saltLabel));

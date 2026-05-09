@@ -5,9 +5,14 @@ ZeframLou CREATE3 Factory for deterministic addressing across EVM chains.
 
 PARK is the platform utility token used for staking, rewards, and governance
 participation in the EarnPark ecosystem (https://earnpark.com).
-The contract is a fixed-supply ERC-20 (1B total, 6 decimals) with UUPS upgradeability
-under Safe + Timelock governance, USDC-style stuck-token rescue, ERC-2612 gasless
-approvals, and a hard cap enforced at the `_update` level.
+The contract is a **capped-supply** ERC-20 (1 B PARK hard cap, 6 decimals) with
+**admin reissuance up to the cap**: holder burns reduce `totalSupply()` and
+create headroom that `DEFAULT_ADMIN_ROLE` can mint back via `mint()`. The cap
+itself is immutable (returned by a `pure` override). Other surface: UUPS
+upgradeability under Safe + Timelock governance, USDC-style stuck-token
+rescue, ERC-2612 gasless approvals, and the hard cap enforced at the
+`_update` level. See `docs/TOKEN-SPEC.md` for the full surface and
+`docs/UPGRADE-HAZARDS.md` for the cap-storage upgrade contract.
 
 ## Contract
 

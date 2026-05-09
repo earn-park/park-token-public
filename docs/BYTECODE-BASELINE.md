@@ -13,17 +13,27 @@ Auditor verification: run `./scripts/repro.sh` from a clean clone and compare
 the printed hashes against the table below. **Any mismatch indicates supply-chain
 drift — investigate before continuing.**
 
-| Contract | deployedBytecode keccak256 |
-|---|---|
-| `ParkToken` | `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe` |
-| `ParkERC1967Proxy` | `0xe4e6d85c1e7d4c4248539a37bd8d2dec2b43cc196d0eec80cb369d1e0f4a852a` |
-| `ParkTimelockController` | `0x0088b332b105c5785425e90b0dbb4f668463e08990ad322564f965b33d8960b7` |
+**Two artifact families are baselined — both must match.** The deploy path
+(`scripts/deploy/base/deploy-bsc.ts`) loads Hardhat artifacts; Foundry is the
+audit anchor. The same Solidity source produces different metadata bytes
+between toolchains, so the Foundry and Hardhat hashes diverge intentionally.
+`scripts/repro.sh` computes both and asserts each row.
+
+| Contract | Toolchain | deployedBytecode keccak256 |
+|---|---|---|
+| `ParkToken` (Foundry) | foundry 1.5.1-stable | `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe` |
+| `ParkToken` (Hardhat) | hardhat 3.4.1 | `0x16d19ffa2817afa6662bacc108f4cf449a02cbe0851af283e8a378e8397d5305` |
+| `ParkERC1967Proxy` (Foundry) | foundry 1.5.1-stable | `0x169c8d57272527aa60ca40f52865a8400eda3e2a0cc7edffe1a55ec9e96a87e8` |
+| `ParkERC1967Proxy` (Hardhat) | hardhat 3.4.1 | `0xfa7c32f150b12695112b2747006e70fd00acb277ebfa7619780d95f5a3a04c32` |
+| `ParkTimelockController` (Foundry) | foundry 1.5.1-stable | `0x0088b332b105c5785425e90b0dbb4f668463e08990ad322564f965b33d8960b7` |
+| `ParkTimelockController` (Hardhat) | hardhat 3.4.1 | `0xcb779433afe4d79f0e3482401f327c0546d77efb4deeef00e4bd52b4694f6cb9` |
 
 If your `forge --version` SHA differs from `b0a9dd9c`, hashes WILL drift — pin
-to the exact toolchain via `foundryup --version b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2` for reproducibility.
+to the exact toolchain via `foundryup --version b0a9dd9c` for reproducibility.
+`scripts/repro.sh` asserts the SHA before computing hashes; CI does the same.
 
-If hashes match the table above, the build environment is verified and the audit
-may proceed on the source code. If they differ, do not proceed — diagnose
-toolchain drift first.
+If hashes match every row above, the build environment is verified and the
+audit may proceed on the source code. If they differ, do not proceed —
+diagnose toolchain drift first.
 
 Each vendored library directory under `lib/` carries a `.vendored-info.txt` recording the upstream commit SHA captured at audit-handoff time. Use these to diff against the upstream repository to verify zero local modifications.
