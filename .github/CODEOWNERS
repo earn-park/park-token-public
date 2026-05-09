@@ -1,8 +1,9 @@
-# Default reviewer for everything: the security team.
-*       @earn-park/security
+# Default reviewer: project owner. Replace with @earn-park/security
+# once a github team exists at that handle (see mega-review M-9).
+*       @aaronhorwitz
 
-# Critical bytecode surfaces require an explicit security review.
-/contracts/         @earn-park/security
-/lib/               @earn-park/security
-/foundry.toml       @earn-park/security
-/hardhat.config.ts  @earn-park/security
+# Critical bytecode surfaces require an explicit owner review.
+/contracts/         @aaronhorwitz
+/lib/               @aaronhorwitz
+/foundry.toml       @aaronhorwitz
+/hardhat.config.ts  @aaronhorwitz
