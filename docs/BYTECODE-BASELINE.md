@@ -15,7 +15,7 @@ drift — investigate before continuing.**
 
 | Contract | deployedBytecode keccak256 |
 |---|---|
-| `ParkToken` | `0xa51d1ca5caeb55dec90723bcad06080462be89e508be79978ec053991bf60842` |
+| `ParkToken` | `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe` |
 | `ParkERC1967Proxy` | `0xe4e6d85c1e7d4c4248539a37bd8d2dec2b43cc196d0eec80cb369d1e0f4a852a` |
 | `ParkTimelockController` | `0x0088b332b105c5785425e90b0dbb4f668463e08990ad322564f965b33d8960b7` |
 

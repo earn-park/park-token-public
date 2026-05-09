@@ -152,7 +152,7 @@ contract ParkTokenTest is Test {
     }
 
     function test_init_implVersion() public view {
-        assertEq(token.implVersion(), "base-1.0.0");
+        assertEq(token.implVersion(), "v1.0.0");
     }
 
     function test_init_rolesGrantedCorrectly() public view {

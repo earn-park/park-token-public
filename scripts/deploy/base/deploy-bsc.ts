@@ -554,8 +554,8 @@ export async function runPostDeployAssertions(args: PostDeployAssertionArgs): Pr
     abi: getProxyAbi(),
     functionName: "implVersion"
   });
-  if (liveVersion !== "base-1.0.0") {
-    throw new Error(`implVersion() "${liveVersion}" != "base-1.0.0"`);
+  if (liveVersion !== "v1.0.0") {
+    throw new Error(`implVersion() "${liveVersion}" != "v1.0.0"`);
   }
   console.log(`  PASS: implVersion() == "${liveVersion}"`);
 

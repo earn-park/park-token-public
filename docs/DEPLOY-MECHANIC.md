@@ -69,7 +69,7 @@ before broadcasting any transaction. Mismatch aborts the deploy.
 11. `cap() == 1_000_000_000 PARK`
 12. `totalSupply() == cap()`
 13. `balanceOf(initialHolder) == cap()`
-14. `implVersion() == "base-1.0.0"`
+14. `implVersion() == "v1.0.0"`
 15. `contractURI() == configured URI`
 
 ---

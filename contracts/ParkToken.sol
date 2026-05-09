@@ -367,7 +367,7 @@ contract ParkToken is
     /// @notice On-chain identifier for the live implementation. Bumped on
     ///         every impl redeploy. Virtual so upgrade impls can override.
     function implVersion() public pure virtual returns (string memory) {
-        return "base-1.0.0";
+        return "v1.0.0";
     }
 
     // ============================ Cap ==================================
