@@ -19,7 +19,17 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
         with:
           version: stable
-      - run: forge --version
+      # Pin to the exact Foundry commit documented in docs/AUDIT-SCOPE.md
+      # and asserted by docs/BYTECODE-BASELINE.md. Any drift here changes
+      # bytecode reproducibility — bump the SHA in source code AND in this
+      # workflow in the same PR (per mega-review MR-02 fix).
+      - run: foundryup --version "b0a9dd9c"
+      - name: Assert Foundry SHA matches baseline
+        run: |
+          set -euo pipefail
+          forge --version
+          forge --version | grep -q 'b0a9dd9c' \
+            || { echo "::error::Foundry SHA drift — expected b0a9dd9c, got $(forge --version)"; exit 1; }
       - run: forge fmt --check
       - run: forge build --offline
       - run: forge test --offline -vv
