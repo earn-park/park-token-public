@@ -25,3 +25,5 @@ to the exact toolchain via `foundryup --version b0a9dd9ceda36f63e2326ce530c10e69
 If hashes match the table above, the build environment is verified and the audit
 may proceed on the source code. If they differ, do not proceed — diagnose
 toolchain drift first.
+
+Each vendored library directory under `lib/` carries a `.vendored-info.txt` recording the upstream commit SHA captured at audit-handoff time. Use these to diff against the upstream repository to verify zero local modifications.

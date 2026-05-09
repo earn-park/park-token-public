@@ -1,0 +1,5 @@
+upstream: https://github.com/OpenZeppelin/openzeppelin-contracts
+commit:   9cfdccd35350f7bcc585cf2ede08cd04e7f0ec10
+version:  v5.6.1
+license:  MIT
+captured: 2026-05-09

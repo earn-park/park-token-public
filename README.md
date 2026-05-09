@@ -15,11 +15,13 @@ approvals, and a hard cap enforced at the `_update` level.
 - **Standards:** ERC-20, ERC-2612 Permit, ERC-1967 UUPS proxy, ERC-7201 namespaced storage
 - **OpenZeppelin v5.6.1** (capped, burnable, permit, access-control with default-admin-rules)
 
+PARK Token uses four AccessControl roles: `DEFAULT_ADMIN_ROLE` (held by Safe), `UPGRADER_ROLE` (held by Timelock), `RESCUER_ROLE` (held by a dedicated rescuer EOA), and `TIMELOCK_ADMIN_ROLE` (held by Timelock; the only role that can grant/revoke `UPGRADER_ROLE`).
+
 ## Quick start
 
 ```bash
 git clone <repository-url>
-cd park-token
+cd park-token-public
 # lib/ is fully vendored — no submodule init needed
 npm install --ignore-scripts
 forge build --offline        # Foundry artifacts (out/) — authoritative for audit
@@ -56,3 +58,5 @@ This repository is submitted for external security audit. See `docs/AUDIT-SCOPE.
 ## License
 
 BUSL-1.1 — see `LICENSE`.
+
+All files in this repository, including TypeScript scripts and shell utilities, are governed by the root `LICENSE` (BUSL-1.1) unless they carry a different SPDX identifier.

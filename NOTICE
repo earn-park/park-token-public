@@ -1,0 +1,32 @@
+PARK Token — Third-Party Software Notices
+==========================================
+
+This repository's smart contracts (BUSL-1.1) bundle and depend on the
+following third-party software, distributed under their own licenses
+(retained verbatim under `lib/<dep>/LICENSE`):
+
+OpenZeppelin Contracts v5.6.1
+  Copyright (c) 2016-2026 Zeppelin Group Ltd
+  License: MIT
+  Source: https://github.com/OpenZeppelin/openzeppelin-contracts
+
+OpenZeppelin Contracts Upgradeable v5.6.1
+  Copyright (c) 2016-2026 Zeppelin Group Ltd
+  License: MIT
+  Source: https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+
+forge-std v1.15.0
+  Copyright (c) 2021 Forge Std Contributors
+  License: MIT OR Apache-2.0
+  Source: https://github.com/foundry-rs/forge-std
+
+ZeframLou CREATE3 Factory (used at deploy time only; not bundled)
+  Author: ZeframLou
+  License: AGPL-3.0
+  Source: https://github.com/ZeframLou/create3-factory
+  On-chain address (BSC + Arbitrum + Ethereum):
+    0x6aA3D87e99286946161dCA02B97C5806fC5eD46F
+
+The above attribution satisfies MIT NOTICE preservation requirements.
+For the full text of each license, see `lib/<dep>/LICENSE` or the
+upstream source.
