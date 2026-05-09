@@ -69,3 +69,41 @@ Adding any new namespaced struct in a future implementation requires:
 
 The OZ Hardhat-Upgrades plugin `validations.json` flags layout deltas at deploy time but
 does NOT check namespace collisions across non-inheritance ranges. Manual review required.
+
+---
+
+## H-5. Explorer mark-as-proxy must be re-run on every upgrade
+
+The Etherscan V2 `verifyproxycontract` API call (documented in
+`docs/DEPLOY-MECHANIC.md` §«Mark-as-proxy on the explorer») registers
+the implementation pointer that the explorer uses to render the
+«Read as Proxy» / «Write as Proxy» tabs. The registration is keyed to a
+specific implementation address — it is NOT updated by an on-chain UUPS
+upgrade.
+
+Consequences if the call is skipped after an upgrade:
+
+- The explorer continues to render the OLD implementation's ABI in the
+  proxy tabs forever.
+- Block-explorer-driven dashboards (DefiLlama, Tokenterminal, etc.) that
+  derive function lists from the explorer-reported ABI will keep
+  surfacing methods that no longer exist or omit methods that the new
+  impl added.
+- Wallet UIs that fetch the proxy ABI from the explorer (e.g., for
+  «Read Contract» panels) will silently call into the wrong fragment if
+  the storage layout changed.
+
+**Operator action on every UUPS upgrade:**
+
+1. After `Timelock.execute(...)` lands, source-verify the new impl with
+   `npx hardhat verify --network <bsc|...> <newImplAddress>`.
+2. Re-issue the `verifyproxycontract` API call for each chain on which
+   the proxy is live, passing the NEW impl address as
+   `expectedimplementation`. Recipe in `docs/DEPLOY-MECHANIC.md`.
+3. Confirm in a browser that the «Read as Proxy» / «Write as Proxy»
+   tabs render the new impl's ABI before signalling «upgrade complete»
+   to downstream integrations.
+
+**Scope reminder:** this is operational hygiene, not a contract
+invariant. The on-chain proxy state is correct after `execute(...)` —
+the explorer is the only thing that needs re-pointing.
