@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- `implVersion()` now returns `"v1.0.0"` (was `"base-1.0.0"`). Cosmetic
+  rename — drops the historical `base-` prefix carried over from the
+  internal `ParkTokenBase` working name. Bytecode hash for the
+  `ParkToken` implementation contract changes accordingly:
+  - new `ParkToken` deployedBytecode keccak256:
+    `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe`
+  - was: `0xa51d1ca5caeb55dec90723bcad06080462be89e508be79978ec053991bf60842`
+  - `ParkERC1967Proxy` and `ParkTimelockController` hashes are unchanged
+    (neither references `implVersion`).
+- The two test deployments at proxy `0xA4a83c12bFed8Ba35da4a6203f6F5E783a887BCC`
+  on BSC + Arbitrum continue to expose `implVersion() == "base-1.0.0"`
+  on-chain. Their source verification on BscScan / Arbiscan reflects the
+  pre-rename source forever; they are TEST instances and will be
+  superseded by a fresh production deploy from this updated source.
+
 ## v1.0.0 — 2026-05-09 (audit-handoff snapshot)
 
 Initial public release of the PARK Token smart-contract source for

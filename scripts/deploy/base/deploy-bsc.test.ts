@@ -275,7 +275,7 @@ describe("runPostDeployAssertions", () => {
         if (params.functionName === "cap") return EXPECTED_CAP;
         if (params.functionName === "totalSupply") return EXPECTED_CAP;
         if (params.functionName === "balanceOf") return EXPECTED_CAP;
-        if (params.functionName === "implVersion") return "base-1.0.0";
+        if (params.functionName === "implVersion") return "v1.0.0";
         if (params.functionName === "contractURI") return "https://earnpark.com/token-metadata.json";
         throw new Error(`Unexpected readContract call: ${params.functionName}`);
       }
