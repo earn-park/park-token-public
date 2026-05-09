@@ -118,3 +118,59 @@ the same proxy address exists (enabled by CREATE3 determinism).
 signature created for BSC chainId 56 is invalid on any other chain. OZ's
 `ERC20PermitUpgradeable` implements this correctly; `test_permit_revertsReplay` verifies
 replay is rejected even on the same chain.
+
+---
+
+## T10. Reentrancy via `rescueETH`
+
+**Threat:** `rescueETH` performs an external call (`recipient.call{value}("")`). A malicious recipient (contract) could re-enter the token contract during this call, attempting to drain or manipulate state.
+
+**Mitigation:**
+- `RESCUER_ROLE` is granted only to a trusted EOA (or hardened multisig in production), not arbitrary contracts.
+- The function uses checks-effects-interactions: `_msgSender()` role check first, then ETH transfer.
+- ERC20 token state is not modifiable from `rescueETH` (only ETH balance moves), so re-entry into ERC20 paths is harmless.
+- Slither suppressions on this function are documented in `AUDIT-SCOPE.md` §"What to focus on".
+
+**Auditor focus:** confirm checks-effects-interactions ordering and that no ERC20 state mutations are reachable from the recipient's fallback during the ETH send.
+
+## T11. UUPS upgrade-bricking via role drop
+
+**Threat:** Permanent loss of upgradeability if `UPGRADER_ROLE` and `TIMELOCK_ADMIN_ROLE` are simultaneously left without a holder. Then no future upgrade can be authorised.
+
+**Mitigation:**
+- `renounceRole(TIMELOCK_ADMIN_ROLE, ...)` is blocked outright.
+- `revokeRole(TIMELOCK_ADMIN_ROLE, account)` is blocked when `account == _msgSender()` (no self-revocation).
+- Legitimate Timelock-rotation flow remains feasible: governance grants the role to a new holder first, then the new holder revokes the retired one (different `msg.sender` → allowed).
+
+**Auditor focus:** verify the asymmetry; confirm that the grant-before-revoke flow remains feasible and that no path can leave the role permanently empty.
+
+## T12. ERC-7201 namespace storage collision
+
+**Threat:** A future implementation introducing a new namespaced storage struct could compute a slot that collides with `earnpark.storage.ParkToken.Metadata` (slot `0x2c6f7963…7d00`) or with any `openzeppelin.storage.*` ancestor namespace, silently corrupting state on upgrade.
+
+**Mitigation:**
+- Slot for `MetadataLocation` is documented in `STORAGE-LAYOUT.md` and asserted via the regression test `test_metadataNamespaceSlot_matchesERC7201` (`test/ParkToken.t.sol`).
+- Every successor implementation MUST add a `test_<namespace>NamespaceSlot_matchesERC7201` regression test.
+- The OZ Hardhat-Upgrades plugin's `validations.json` flags layout deltas at deploy but does NOT detect cross-namespace collisions; manual review is mandatory.
+
+**Auditor focus:** verify the namespace-slot regression test exists and is run in CI; review `UPGRADE-HAZARDS.md` H-4 for the full obligation set on future upgrades.
+
+## T13. EIP-7702 delegated-EOA bypass on `UpgraderNotContract`
+
+**Threat:** `_validateInitConfig` rejects EOAs as upgrader by checking `c.upgrader.code.length == 0`. Post-Pectra (EIP-7702), an EIP-7702-delegated EOA reports `code.length > 0` even though it is not a deployed contract. The check cannot detect this class of misconfiguration alone.
+
+**Mitigation:**
+- Operator-side: every deploy MUST verify the upgrader address resolves to a `TimelockController`-shaped runtime — call `getMinDelay()` and confirm it returns a sane value.
+- Documented in `UPGRADE-HAZARDS.md` H-3 and in the post-deploy assertion list (`DEPLOY-MECHANIC.md`).
+
+**Auditor focus:** confirm the operator-runbook step exists and is enforced before the proxy is initialised.
+
+## T14. ERC-2612 permit signature replay (same-chain)
+
+**Threat:** Replaying a valid permit signature on the same chain to grant allowances repeatedly without the holder's consent.
+
+**Mitigation:**
+- OZ ERC20Permit uses a per-owner nonce that increments on every successful `permit()` call. Replays on the same chain fail because the nonce has advanced.
+- DOMAIN_SEPARATOR includes `chainId`, so cross-chain replay (post fork or replay across BSC ↔ Arbitrum) is also prevented.
+
+**Auditor focus:** confirm OZ ERC20PermitUpgradeable v5.6.1 nonce increment + chainId binding, no override of `_useNonce` in `ParkToken.sol`.

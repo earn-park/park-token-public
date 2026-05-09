@@ -1,9 +1,10 @@
 {
   "name": "park-token-bsc",
   "private": true,
+  "license": "BUSL-1.1",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": "22.20.0"
   },
   "scripts": {
     "hh:compile": "hardhat compile",

@@ -1,0 +1,42 @@
+name: CI
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+permissions:
+  contents: read
+
+jobs:
+  forge:
+    name: Foundry
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: false
+          persist-credentials: false
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: stable
+      - run: forge --version
+      - run: forge fmt --check
+      - run: forge build --offline
+      - run: forge test --offline -vv
+
+  ts:
+    name: TypeScript
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22.20.0'
+      - run: npm ci --ignore-scripts
+      - run: npm run deps:check-exact
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run hh:test

@@ -11,7 +11,7 @@
 //   3. factory.deploy(salt, ERC1967Proxy_initcode) — proxy at deterministic
 //      address derivable from (factory, deployer, salt)
 //
-// 12+ post-deploy assertions guard role lattice + Timelock minDelay.
+// 15 post-deploy assertions guard role lattice + Timelock minDelay.
 //
 // Operator guide: docs/DEPLOY-MECHANIC.md
 //

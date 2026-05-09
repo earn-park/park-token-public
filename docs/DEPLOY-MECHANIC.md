@@ -104,7 +104,7 @@ calldata used at deploy time — re-encodable from the `InitConfig` struct docum
 Source verification (above) publishes the bytecode of the proxy stub
 itself; it does NOT register the implementation pointer with the
 explorer. Without registration, BscScan / Arbiscan render only the raw
-proxy stub on the contract page — the «Read as Proxy» / «Write as Proxy»
+proxy stub on the contract page — the "Read as Proxy" / "Write as Proxy"
 tabs that expose `cap()`, `totalSupply()`, role views, `contractURI()`,
 etc. via the implementation's ABI never appear.
 
@@ -137,7 +137,7 @@ all V2-supported chains (BscScan, Etherscan, Arbiscan, etc.) — the
 chain on which the proxy is live.
 
 After the call returns OK, open the proxy page in a browser and confirm
-the «Read as Proxy» / «Write as Proxy» tabs render the implementation's
+the "Read as Proxy" / "Write as Proxy" tabs render the implementation's
 ABI (`name()`, `symbol()`, `cap()`, `hasRole(bytes32,address)`, …).
 
 ---

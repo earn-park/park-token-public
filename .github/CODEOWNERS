@@ -1,0 +1,8 @@
+# Default reviewer for everything: the security team.
+*       @earn-park/security
+
+# Critical bytecode surfaces require an explicit security review.
+/contracts/         @earn-park/security
+/lib/               @earn-park/security
+/foundry.toml       @earn-park/security
+/hardhat.config.ts  @earn-park/security

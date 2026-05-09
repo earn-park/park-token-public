@@ -5,8 +5,8 @@
 | File | Purpose |
 |---|---|
 | `contracts/ParkToken.sol` | Main token contract — full audit |
-| `contracts/imports/TimelockControllerImport.sol` | Wrapper around OZ TimelockController v5.6.1 (1 line, no logic) |
-| `contracts/imports/ERC1967ProxyImport.sol` | Wrapper around OZ ERC1967Proxy v5.6.1 (1 line, no logic) |
+| `contracts/imports/TimelockControllerImport.sol` | Wrapper around OZ TimelockController v5.6.1 (thin subclass with no added logic — forwards constructor args verbatim) |
+| `contracts/imports/ERC1967ProxyImport.sol` | Wrapper around OZ ERC1967Proxy v5.6.1 (thin subclass with no added logic — forwards constructor args verbatim) |
 | `scripts/deploy/base/deploy-bsc.ts` | Deploy pipeline — operational review (correctness of post-deploy assertions, no role-leak) |
 | `scripts/deploy/base/create3-factory.ts` | CREATE3 factory bindings — operational review |
 
@@ -69,7 +69,7 @@ These MUST be preserved by the auditor's reproduction build (otherwise bytecode 
 Expected: **85 tests** (77 unit + 8 invariant), 0 failures, 0 skipped.
 
 Run via: `forge test --offline -vvv` (Foundry) and
-`node --import tsx --test scripts/**/*.test.ts` (TS unit tests, 34 tests).
+`node --import tsx --test 'scripts/**/*.test.ts'` (TS unit tests, 34 tests).
 
 ## What to focus on
 
