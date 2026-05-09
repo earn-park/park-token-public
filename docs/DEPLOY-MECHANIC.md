@@ -99,6 +99,49 @@ calldata used at deploy time — re-encodable from the `InitConfig` struct docum
 
 ---
 
+## Mark-as-proxy on the explorer (required after every fresh deploy)
+
+Source verification (above) publishes the bytecode of the proxy stub
+itself; it does NOT register the implementation pointer with the
+explorer. Without registration, BscScan / Arbiscan render only the raw
+proxy stub on the contract page — the «Read as Proxy» / «Write as Proxy»
+tabs that expose `cap()`, `totalSupply()`, role views, `contractURI()`,
+etc. via the implementation's ABI never appear.
+
+For ERC1967 proxies deployed via OpenZeppelin's
+TransparentUpgradeableProxyFactory, the explorer auto-recognises the
+implementation and registers the proxy automatically. The ZeframLou
+CREATE3 factory is NOT in that recognised set, so the auto-flow does not
+fire and the proxy must be marked manually.
+
+Use the Etherscan V2 unified API endpoint (one call per chain):
+
+```bash
+# BSC mainnet (chainid=56)
+curl -X POST "https://api.etherscan.io/v2/api?chainid=56" \
+  -d "module=contract" \
+  -d "action=verifyproxycontract" \
+  -d "address=$PROXY_ADDRESS" \
+  -d "expectedimplementation=$IMPL_ADDRESS" \
+  -d "apikey=$ETHERSCAN_V2_API_KEY"
+# → returns {"status":"1","result":"<GUID>"}
+
+# Wait ~10 s, then check status:
+curl "https://api.etherscan.io/v2/api?chainid=56&module=contract&action=checkproxyverification&guid=<GUID>&apikey=$ETHERSCAN_V2_API_KEY"
+# expected: {"status":"1","result":"The proxy's (...) implementation contract is found at ... and is successfully updated."}
+```
+
+`ETHERSCAN_V2_API_KEY` is a single API key that authenticates against
+all V2-supported chains (BscScan, Etherscan, Arbiscan, etc.) — the
+`chainid` query parameter routes the request. Repeat the call once per
+chain on which the proxy is live.
+
+After the call returns OK, open the proxy page in a browser and confirm
+the «Read as Proxy» / «Write as Proxy» tabs render the implementation's
+ABI (`name()`, `symbol()`, `cap()`, `hasRole(bytes32,address)`, …).
+
+---
+
 ## Deterministic address derivation
 
 The proxy address can be computed off-chain from:
