@@ -50,3 +50,30 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run hh:test
+
+  repro:
+    name: Bytecode reproducibility (Foundry + Hardhat)
+    needs: [forge, ts]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: false
+          persist-credentials: false
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: stable
+      - run: foundryup --version "b0a9dd9c"
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22.20.0'
+      # scripts/repro.sh:
+      #   1. asserts forge --version SHA matches b0a9dd9c
+      #   2. cleans out/ + cache_hardhat/ + artifacts/
+      #   3. compiles via hardhat + forge
+      #   4. computes deployedBytecode keccak256 for ParkToken / ParkERC1967Proxy /
+      #      ParkTimelockController in BOTH artifact families
+      #   5. asserts each of the 6 hashes matches docs/BYTECODE-BASELINE.md
+      #   exits non-zero on any drift. CertiK pre-audit M-02 fix.
+      - name: Run scripts/repro.sh (asserts 6 baseline rows)
+        run: bash scripts/repro.sh

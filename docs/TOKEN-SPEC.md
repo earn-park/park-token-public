@@ -153,5 +153,69 @@ initialised directly. The `initialize` function uses the `initializer` modifier 
    reverts `InvalidInitialization`. The implementation constructor calls `_disableInitializers()`
    to block direct initialization on the impl bytecode.
 6. **Admin delay bounds:** `24h <= defaultAdminDelay <= 30d` at all times.
-7. **No ETH accretion:** no `receive` or `fallback` payable; ETH only via `selfdestruct`
-   beneficiary or coinbase reward; only exit via `rescueETH`.
+7. **Bounded ETH ingress:** the proxy has no `receive` or `fallback` payable, so naked
+   `transfer()` from EOAs reverts. ETH may still enter through three privileged or
+   unavoidable paths:
+   - **Forced ETH:** `selfdestruct` beneficiary (post-Cancun: only same-tx selfdestruct)
+     or coinbase reward — no contract guard exists at the EVM level.
+   - **`upgradeToAndCall` payload:** OpenZeppelin's `ERC1967Utils.upgradeToAndCall`
+     accepts `msg.value` when the setup calldata is non-empty; the value is forwarded
+     to the post-upgrade `delegatecall`. Reaching this path requires `UPGRADER_ROLE`
+     (Timelock-gated). Any ETH that lands at the proxy through this route is
+     recoverable via `rescueETH(RESCUER_ROLE)`.
+   - **Future `payable` functions added in a successor implementation:** an upgrade
+     that adds payable surface would create a new ingress path. Auditors of any
+     future impl MUST re-check this invariant.
+
+   Only exit path: `rescueETH` (RESCUER_ROLE).
+
+## Privilege matrix
+
+Single-table view of every state-mutating function in `ParkToken.sol` plus
+relevant role-administration paths. **In production, all role holders
+should be Safe-mediated** (see `SECURITY.md` for governance hard gates).
+
+| Function | Effect | Caller (role) | Bound by Timelock? | Reversible by? |
+|---|---|---|---|---|
+| `initialize(InitConfig)` | One-shot constructor: mints `1B PARK`, grants roles, sets URI/delays | Anyone (proxy ctor only — `_disableInitializers` on impl) | n/a | n/a |
+| `mint(to, amount)` | Mint up to `cap() - totalSupply()` | `DEFAULT_ADMIN_ROLE` | NO (direct admin mint) | Holder burn |
+| `burn(amount)`, `burnFrom(account, amount)` | Reduce `totalSupply()` by holder | Holder of tokens (or approved) | NO | Admin can re-`mint()` |
+| `transfer`, `transferFrom`, `approve`, `permit` | Standard ERC-20 / ERC-2612 | Anyone | NO | Standard ERC-20 reversibility |
+| `rescueERC20(token, to, amount)` | Sweep stuck foreign ERC-20 (NOT this contract) | `RESCUER_ROLE` | NO | n/a (already moved) |
+| `rescueETH(to, amount)` | Sweep stuck ETH | `RESCUER_ROLE` | NO | n/a |
+| `setContractURI(string)` | Update metadata URI | `DEFAULT_ADMIN_ROLE` | NO | Subsequent `setContractURI` |
+| `upgradeToAndCall(newImpl, data)` | Replace implementation slot, optionally reinit | `UPGRADER_ROLE` (Timelock-only by post-deploy invariant) | YES (`getMinDelay()` ≥ 21 600 s in prod) | Schedule reverse upgrade |
+| `grantRole(role, account)` | Grant arbitrary role | Role-admin (see lattice below) | NO at contract level — Safe MUST schedule via Timelock for `UPGRADER_ROLE` | `revokeRole` |
+| `revokeRole(role, account)` | Revoke role | Role-admin | NO | `grantRole` |
+| `renounceRole(role, _self)` | Self-revocation | Caller | NO | NOT REVOCABLE for `TIMELOCK_ADMIN_ROLE` (blocked); irreversible for others |
+| `beginDefaultAdminTransfer(newAdmin)` | Schedule admin transfer (OZ AccessControlDefaultAdminRules) | `DEFAULT_ADMIN_ROLE` | Pending state with `defaultAdminDelay` (≥ 24 h) | `cancelDefaultAdminTransfer` within window |
+| `acceptDefaultAdminTransfer()` | Finalise admin transfer | Pending admin (post-delay) | n/a | Re-transfer |
+| `changeDefaultAdminDelay(uint48)` | Change delay (within `[24 h, 30 d]` bounds) | `DEFAULT_ADMIN_ROLE` | Pending state with current delay | `rollbackDefaultAdminDelay` |
+
+### Role lattice
+
+```
+DEFAULT_ADMIN_ROLE (Safe ≥3/5 prod)
+├── admin of: RESCUER_ROLE (grant/revoke)
+├── admin of: DEFAULT_ADMIN_ROLE (via OZ default-admin-rules 2-step + delay)
+└── direct calls: mint, setContractURI
+
+TIMELOCK_ADMIN_ROLE (held by Timelock; self-administered)
+└── admin of: UPGRADER_ROLE (only the Timelock can grant/revoke UPGRADER_ROLE)
+
+UPGRADER_ROLE (held by Timelock)
+└── direct calls: upgradeToAndCall (=> Timelock-mediated)
+
+RESCUER_ROLE (held by RESCUER EOA / dedicated Safe)
+└── direct calls: rescueERC20, rescueETH
+```
+
+### Holder snapshot at deploy (initialize)
+
+| Role | Holder | Notes |
+|---|---|---|
+| `DEFAULT_ADMIN_ROLE` | `BSC_DEFAULT_ADMIN_ADDRESS` (Safe) | Sole holder |
+| `UPGRADER_ROLE` | Timelock contract | Granted at init, never directly to humans |
+| `TIMELOCK_ADMIN_ROLE` | Timelock contract | Self-administered, blocks renounce |
+| `RESCUER_ROLE` | `BSC_RESCUER_ADDRESS` | MUST differ from default-admin (deploy script enforces) |
+| ERC-20 balance | `BSC_INITIAL_HOLDER` (defaults to Safe) | Holds 100 % of initial 1 B PARK supply |

@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## v1.0.1 — 2026-05-10 (post mega-review + CertiK pre-audit)
+
+The bytecode of the `ParkToken` implementation contract diverges from
+v1.0.0 due to the L-2 `mint()` cap precheck (see «Changed (mega-review
+batch3)» below). However, `implVersion()` continues to return the source
+constant `"v1.0.0"` — implVersion is the **source-version label**, not
+a deployment-version label. A future commit may bump it explicitly when
+a sentinel rename is bundled with another upgrade.
 
 ### Changed (mega-review batch3)
 - **L-2** — `mint()` now precomputes `amount > cap() - totalSupply()` and

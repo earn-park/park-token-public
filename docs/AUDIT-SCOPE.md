@@ -44,15 +44,23 @@ in `.npmrc` keeps these from blocking install.
 
 ## Toolchain layout
 
-- **Foundry (`forge`)** is the **primary** compiler for tests, bytecode reproducibility,
-  and security tooling (`forge build`, `forge test`, `slither`).
-- **Hardhat (`hardhat`)** is used **only for deployment scripting** —
-  `scripts/deploy/base/deploy-bsc.ts` reads compiled-artifact JSON files directly from
-  the `artifacts/` directory (populated by `npx hardhat compile`). The actual deploy and
-  all on-chain calls use pure viem — no `hre`, no `hardhat-ethers` runtime.
+- **Foundry (`forge`)** — primary compiler for tests, security tooling
+  (`forge build`, `forge test`, `slither`), and the audit-anchor bytecode
+  baseline. Foundry hashes are the canonical reference.
+- **Hardhat (`hardhat`)** — used for **deploy artefact production** — the
+  deploy script `scripts/deploy/base/deploy-bsc.ts` consumes Hardhat
+  artifacts from `artifacts/` (populated by `npx hardhat compile`). All
+  on-chain calls in the runtime path use pure viem — `hardhat-ethers` is
+  declared as a devDependency only because it is a transitive peer of
+  Hardhat 3 plugins, but no runtime script imports `ethers` from the
+  audit-scope perspective.
 
-For audit purposes, only the Foundry build is authoritative. The bytecode hashes printed
-by `scripts/repro.sh` are taken from `out/` (Foundry's output directory).
+For audit purposes, **both Foundry and Hardhat artifact families are
+baselined** in `docs/BYTECODE-BASELINE.md`. Same Solidity source produces
+divergent metadata bytes between toolchains (compiler-injected metadata
+hash differs), so the file lists six rows — Foundry + Hardhat for each of
+`ParkToken`, `ParkERC1967Proxy`, `ParkTimelockController`. `scripts/repro.sh`
+asserts every row and exits non-zero on any drift.
 
 ## Compiler invariants
 
@@ -66,10 +74,11 @@ These MUST be preserved by the auditor's reproduction build (otherwise bytecode 
 
 ## Test suite
 
-Expected: **85 tests** (77 unit + 8 invariant), 0 failures, 0 skipped.
+Expected: **86 Foundry tests** (78 unit + 8 invariant), 0 failures, 0 skipped.
+TS unit tests: **34**.
 
 Run via: `forge test --offline -vvv` (Foundry) and
-`node --import tsx --test 'scripts/**/*.test.ts'` (TS unit tests, 34 tests).
+`node --import tsx --test 'scripts/**/*.test.ts'` (TS unit tests).
 
 ## What to focus on
 
