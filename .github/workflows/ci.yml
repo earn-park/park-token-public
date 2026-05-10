@@ -29,8 +29,8 @@ jobs:
           forge --version | grep -q 'b0a9dd9c' \
             || { echo "::error::Foundry SHA drift — expected b0a9dd9c, got $(forge --version)"; exit 1; }
       - run: forge fmt --check
-      - run: forge build --offline
-      - run: forge test --offline -vv
+      - run: forge build
+      - run: forge test -vv
 
   ts:
     name: TypeScript
