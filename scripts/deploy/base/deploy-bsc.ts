@@ -47,7 +47,13 @@ import {
   type SupportedChainKey
 } from "./create3-factory.js";
 import { resolveChain } from "../../ops/chain-resolver.js";
-import { resolveBscEnv, type ResolvedBscEnv } from "./resolve-bsc-env.js";
+import {
+  resolveBscEnv,
+  type ResolvedBscEnv,
+  PRODUCTION_TIMELOCK_DELAY_MIN,
+  PRODUCTION_SAFE_THRESHOLD_MIN,
+  PRODUCTION_SAFE_OWNERS_MIN
+} from "./resolve-bsc-env.js";
 
 const CHAIN_BY_KEY: Record<SupportedChainKey, Chain> = {
   bsc
@@ -139,7 +145,9 @@ function getTimelockAbi(): AbiItem[] {
     const full = loadArtifactAbi(
       "artifacts/contracts/imports/TimelockControllerImport.sol/ParkTimelockController.json"
     );
-    _timelockAbi = extractAbiFragments(full, ["getMinDelay"]);
+    // hasRole added for the Timelock-internal role lattice assertions
+    // (CertiK pre-audit H-02 + mega-review M-1).
+    _timelockAbi = extractAbiFragments(full, ["getMinDelay", "hasRole"]);
   }
   return _timelockAbi;
 }
@@ -261,6 +269,65 @@ export async function preClaimSafetyCheck(args: PreClaimSafetyArgs): Promise<voi
     throw new Error(
       `preClaimSafetyCheck: target ${args.predicted} already has code on ${args.chainKey}; aborting`
     );
+  }
+}
+
+// ── Safe-shape pre-broadcast gate (CertiK pre-audit H-02) ────────────────────
+// Inspects the multisig topology of `BSC_DEFAULT_ADMIN_ADDRESS` (the Safe
+// receiving DEFAULT_ADMIN_ROLE on the proxy). On production deploys the
+// thresholds enforced by PRODUCTION_SAFE_THRESHOLD_MIN /
+// PRODUCTION_SAFE_OWNERS_MIN must hold or the script aborts pre-broadcast.
+// Bootstrap deploys log the same numbers but proceed.
+export async function assertSafeShape(args: {
+  publicClient: ReturnType<typeof createPublicClient>;
+  safeAddress: `0x${string}`;
+  productionMode: boolean;
+}): Promise<void> {
+  const { publicClient, safeAddress, productionMode } = args;
+  const SAFE_VIEW_ABI = [
+    { type: "function", name: "getThreshold", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+    { type: "function", name: "getOwners", stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
+    { type: "function", name: "VERSION", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] }
+  ] as const;
+
+  // VERSION is best-effort; not all Safe deployments expose it. If the call
+  // reverts we treat it as INFO, not an abort.
+  let safeVersion = "(unknown — VERSION() reverted)";
+  try {
+    safeVersion = (await publicClient.readContract({ address: safeAddress, abi: SAFE_VIEW_ABI, functionName: "VERSION" })) as string;
+  } catch {
+    // ignore
+  }
+
+  const threshold = (await publicClient.readContract({ address: safeAddress, abi: SAFE_VIEW_ABI, functionName: "getThreshold" })) as bigint;
+  const owners = (await publicClient.readContract({ address: safeAddress, abi: SAFE_VIEW_ABI, functionName: "getOwners" })) as readonly `0x${string}`[];
+
+  console.log(`Safe shape:  threshold=${threshold} owners=${owners.length} version=${safeVersion}`);
+  console.log(`Safe owners: ${owners.join(", ")}`);
+
+  if (productionMode) {
+    if (Number(threshold) < PRODUCTION_SAFE_THRESHOLD_MIN) {
+      throw new Error(
+        `BSC_PRODUCTION_MODE=true requires Safe threshold >= ${PRODUCTION_SAFE_THRESHOLD_MIN}; ` +
+          `got ${threshold}. Uplift the Safe before broadcasting (runbook 220/130).`
+      );
+    }
+    if (owners.length < PRODUCTION_SAFE_OWNERS_MIN) {
+      throw new Error(
+        `BSC_PRODUCTION_MODE=true requires Safe owner count >= ${PRODUCTION_SAFE_OWNERS_MIN}; ` +
+          `got ${owners.length}. Add owners to the Safe before broadcasting.`
+      );
+    }
+    // Duplicate-EOA check: every owner must be unique.
+    const lc = owners.map((o) => o.toLowerCase());
+    if (new Set(lc).size !== lc.length) {
+      throw new Error(
+        `Safe owners contain duplicate entries; production deploy refuses ambiguous owner-set.`
+      );
+    }
+    console.log(`  PASS: production-mode Safe shape ✓ (threshold=${threshold}, owners=${owners.length})`);
+  } else {
+    console.log(`  INFO: bootstrap mode — threshold/owners NOT enforced. Set BSC_PRODUCTION_MODE=true on production deploys.`);
   }
 }
 
@@ -392,6 +459,9 @@ export interface PostDeployAssertionArgs {
   defaultAdmin: `0x${string}`;
   rescuer: `0x${string}`;
   initialHolder: `0x${string}`;
+  // EOA that broadcast the deploy transactions. Used by the Timelock-internal
+  // role lattice assertion to verify deployer was NOT left with any roles.
+  deployer: `0x${string}`;
   expectedTimelockDelay: number;
   expectedContractURI: string;
 }
@@ -513,6 +583,78 @@ export async function runPostDeployAssertions(args: PostDeployAssertionArgs): Pr
   }
   console.log("  PASS: getRoleAdmin(TIMELOCK_ADMIN_ROLE) == self (one-way grant)");
 
+  // ── Timelock-internal role lattice (CertiK pre-audit H-02 + mega-review M-1) ──
+  // Verify that the deployed Timelock holds the canonical OZ role configuration:
+  //   PROPOSER_ROLE  == Safe (defaultAdmin)
+  //   CANCELLER_ROLE == Safe (defaultAdmin)
+  //   EXECUTOR_ROLE  == address(0) (open executor — wildcard)
+  //   DEFAULT_ADMIN_ROLE on the Timelock == Timelock itself (self-administered)
+  //   No other addresses unexpectedly hold any of these roles.
+  const PROPOSER_ROLE = "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1" as Hex; // keccak256("PROPOSER_ROLE")
+  const EXECUTOR_ROLE = "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63" as Hex; // keccak256("EXECUTOR_ROLE")
+  const CANCELLER_ROLE = "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783" as Hex; // keccak256("CANCELLER_ROLE")
+  const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Hex;
+
+  const safeIsProposer = await args.publicClient.readContract({
+    address: args.timelockAddress,
+    abi: getTimelockAbi(),
+    functionName: "hasRole",
+    args: [PROPOSER_ROLE, args.defaultAdmin]
+  });
+  if (!safeIsProposer) throw new Error("Assertion failed: Safe holds PROPOSER_ROLE on Timelock");
+  console.log("  PASS: Safe holds PROPOSER_ROLE on Timelock");
+
+  const safeIsCanceller = await args.publicClient.readContract({
+    address: args.timelockAddress,
+    abi: getTimelockAbi(),
+    functionName: "hasRole",
+    args: [CANCELLER_ROLE, args.defaultAdmin]
+  });
+  if (!safeIsCanceller) throw new Error("Assertion failed: Safe holds CANCELLER_ROLE on Timelock");
+  console.log("  PASS: Safe holds CANCELLER_ROLE on Timelock");
+
+  const wildcardIsExecutor = await args.publicClient.readContract({
+    address: args.timelockAddress,
+    abi: getTimelockAbi(),
+    functionName: "hasRole",
+    args: [EXECUTOR_ROLE, ZERO_ADDR]
+  });
+  if (!wildcardIsExecutor) {
+    throw new Error(
+      "Assertion failed: address(0) does NOT hold EXECUTOR_ROLE on Timelock " +
+        "— deploy intended to be open-executor but is restricted."
+    );
+  }
+  console.log("  PASS: address(0) holds EXECUTOR_ROLE on Timelock (open executor as designed)");
+
+  const timelockIsSelfAdmin = await args.publicClient.readContract({
+    address: args.timelockAddress,
+    abi: getTimelockAbi(),
+    functionName: "hasRole",
+    args: [defaultAdminRole, args.timelockAddress]
+  });
+  if (!timelockIsSelfAdmin) {
+    throw new Error("Assertion failed: Timelock does NOT hold DEFAULT_ADMIN_ROLE on itself");
+  }
+  console.log("  PASS: Timelock holds DEFAULT_ADMIN_ROLE on itself (self-administered)");
+
+  // Negative checks: deployer must NOT retain any Timelock roles after deploy
+  // (some OZ Timelock variants temporarily grant DEFAULT_ADMIN_ROLE to the
+  // deployer during construction; ours should not).
+  const deployerHasTimelockAdmin = await args.publicClient.readContract({
+    address: args.timelockAddress,
+    abi: getTimelockAbi(),
+    functionName: "hasRole",
+    args: [defaultAdminRole, args.deployer]
+  });
+  if (deployerHasTimelockAdmin) {
+    throw new Error(
+      `Assertion failed: deployer ${args.deployer} retains DEFAULT_ADMIN_ROLE on Timelock; ` +
+        `expected to be revoked at end of construction.`
+    );
+  }
+  console.log("  PASS: deployer does NOT retain DEFAULT_ADMIN_ROLE on Timelock");
+
   // Token state assertions — catch misconfigured initialize() args before manifest is written.
   const EXPECTED_CAP = 1_000_000_000n * 10n ** 6n; // 1B PARK, 6 decimals
 
@@ -619,13 +761,13 @@ export interface BuildManifestArgs {
   predictedAddress: string;
 }
 
-// Minimum timelockDelay (seconds) to be considered production-ready.
-// 6 hours gives the community a meaningful reaction window for any scheduled upgrade.
-const MIN_PRODUCTION_TIMELOCK_DELAY = 21600;
+// Re-export so manifest readers can sanity-check the floor without re-importing
+// from resolve-bsc-env. Single source of truth lives there.
+export { PRODUCTION_TIMELOCK_DELAY_MIN as MIN_PRODUCTION_TIMELOCK_DELAY };
 
 export function buildManifest(args: BuildManifestArgs): BscDeployManifest {
   const factory = CREATE3_FACTORY_REGISTRY[args.chainKey];
-  const productionReady = args.timelockDelay >= MIN_PRODUCTION_TIMELOCK_DELAY;
+  const productionReady = args.timelockDelay >= PRODUCTION_TIMELOCK_DELAY_MIN;
   const governanceUpgradePending = !productionReady;
   return {
     versionLabel: "v1.0.0",
@@ -731,6 +873,15 @@ async function main(): Promise<void> {
   await preClaimSafetyCheck({ rpcUrl, chainKey, predicted });
   console.log("  PASS: predicted address is empty, safe to broadcast");
 
+  // Pre-broadcast Safe-shape gate (CertiK pre-audit H-02). Production mode
+  // requires Safe.threshold >= 3 and Safe.owners.length >= 5; bootstrap
+  // mode logs the same numbers as info but does not abort.
+  await assertSafeShape({
+    publicClient,
+    safeAddress: cfg.defaultAdmin as `0x${string}`,
+    productionMode: cfg.productionMode
+  });
+
   // Tx 1: Timelock
   console.log("\nStep 1: Deploying ParkTimelockController...");
   const timelock = await deployTimelock({
@@ -795,6 +946,7 @@ async function main(): Promise<void> {
     defaultAdmin: cfg.defaultAdmin as `0x${string}`,
     rescuer: cfg.rescuer as `0x${string}`,
     initialHolder: cfg.initialHolder as `0x${string}`,
+    deployer: account.address,
     expectedTimelockDelay: cfg.timelockDelay,
     expectedContractURI: cfg.contractURI
   });
