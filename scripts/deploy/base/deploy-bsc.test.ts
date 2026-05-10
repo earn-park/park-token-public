@@ -272,7 +272,7 @@ describe("runPostDeployAssertions", () => {
           if (role === upgraderRole && a === timelockAddress) return true;
           if (role === timelockAdminRole && a === timelockAddress) return true;
           if (role === rescuerRole && a === rescuer) return true;
-          // Timelock-internal roles (CertiK pre-audit H-02 + mega-review M-1)
+          // Timelock-internal roles
           if (role === PROPOSER_ROLE && a === defaultAdmin) return true;
           if (role === CANCELLER_ROLE && a === defaultAdmin) return true;
           if (role === EXECUTOR_ROLE && a === ZERO_ADDR) return true;
@@ -320,7 +320,7 @@ describe("runPostDeployAssertions", () => {
 });
 
 describe("buildManifest", () => {
-  // Default fixture is "all production gates passed" (audit H-01).
+  // Default fixture is "all production gates passed".
   const baseArgs = {
     chainKey: "bsc" as const,
     chainId: 56,
@@ -371,7 +371,7 @@ describe("buildManifest", () => {
     assert.equal(m.productionGates.productionModeFlag.passed, false);
   });
 
-  it("productionReady=false when initial-holder pin missing (CR-01 gate)", () => {
+  it("productionReady=false when initial-holder pin missing", () => {
     const m = buildManifest({ ...baseArgs, expectedInitialHolderSet: false });
     assert.equal(m.productionReady, false);
     assert.equal(m.productionGates.expectedInitialHolderPinned.passed, false);

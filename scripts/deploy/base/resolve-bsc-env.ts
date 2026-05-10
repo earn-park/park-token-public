@@ -17,7 +17,7 @@ export interface ResolvedBscEnv {
   contractURI: string;
   // True when BSC_PRODUCTION_MODE=true. Tightens timelockDelay floor to
   // PRODUCTION_TIMELOCK_DELAY_MIN (21600s = 6 h) and obliges callers to run
-  // additional Safe + role pre-broadcast checks (mega-review CertiK H-02).
+  // additional Safe + role pre-broadcast checks.
   productionMode: boolean;
 }
 
@@ -118,7 +118,7 @@ export function resolveBscEnv(
     );
   }
 
-  // Production-mode hard gate (CertiK pre-audit H-02). Set BSC_PRODUCTION_MODE=true
+  // Production-mode hard gate. Set BSC_PRODUCTION_MODE=true
   // for any deploy that intends to be load-bearing for TGE / CEX / public
   // distribution. Bootstrap rehearsals (Safe 1/1, 900 s Timelock) MUST keep
   // it unset / false. The flag is fail-closed on the timelock floor here;

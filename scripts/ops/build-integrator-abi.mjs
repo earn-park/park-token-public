@@ -10,8 +10,8 @@
 //   npx hardhat compile     # populate artifacts/
 //   node scripts/ops/build-integrator-abi.mjs
 //
-// Audit M-04: keeps generator provenance reproducible (committing the
-// snapshot alone leaves auditors guessing how it was produced).
+// Keeps generator provenance reproducible (committing the snapshot alone
+// leaves reviewers guessing how it was produced).
 
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -45,7 +45,7 @@ const out = {
   generatedBy: "scripts/ops/build-integrator-abi.mjs",
   sourceArtifact: "artifacts/contracts/ParkToken.sol/ParkToken.json",
   description:
-    "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI). CertiK pre-audit L-02.",
+    "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI).",
   contract: "ParkToken (ERC-20 + ERC-2612 + capped + UUPS)",
   notes: {
     decimals:

@@ -1,5 +1,5 @@
 # Default reviewer: project owner. Replace with @earn-park/security
-# once a github team exists at that handle (see mega-review M-9).
+# once a github team exists at that handle.
 *       @aaronhorwitz
 
 # Critical bytecode surfaces require an explicit owner review.

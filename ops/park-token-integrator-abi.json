@@ -1,7 +1,8 @@
 {
-  "generatedAt": "2026-05-10T18:13:21.461Z",
+  "generatedAt": "2026-05-10T23:15:45.111Z",
   "generatedBy": "scripts/ops/build-integrator-abi.mjs",
-  "description": "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI). CertiK pre-audit L-02.",
+  "sourceArtifact": "artifacts/contracts/ParkToken.sol/ParkToken.json",
+  "description": "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI).",
   "contract": "ParkToken (ERC-20 + ERC-2612 + capped + UUPS)",
   "notes": {
     "decimals": "6 - non-standard! Most ERC-20s use 18. Integrators reading raw amounts MUST scale by 10^6, not 10^18.",

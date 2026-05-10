@@ -1,16 +1,16 @@
 # Changelog
 
-## v1.0.1 — 2026-05-10 (post mega-review + CertiK pre-audit)
+## v1.0.1 — 2026-05-10
 
 The bytecode of the `ParkToken` implementation contract diverges from
-v1.0.0 due to the L-2 `mint()` cap precheck (see «Changed (mega-review
-batch3)» below). However, `implVersion()` continues to return the source
-constant `"v1.0.0"` — implVersion is the **source-version label**, not
-a deployment-version label. A future commit may bump it explicitly when
-a sentinel rename is bundled with another upgrade.
+v1.0.0 due to the `mint()` cap precheck (see «Changed» below). However,
+`implVersion()` continues to return the source constant `"v1.0.0"` —
+implVersion is the **source-version label**, not a deployment-version
+label. A future commit may bump it explicitly when a sentinel rename is
+bundled with another upgrade.
 
-### Changed (mega-review batch3)
-- **L-2** — `mint()` now precomputes `amount > cap() - totalSupply()` and
+### Changed
+- `mint()` now precomputes `amount > cap() - totalSupply()` and
   reverts with `ERC20ExceededCap(supply + amount, cap)` (canonical OZ shape,
   unchecked-wrapped for extreme inputs). Eliminates the Panic(0x11) path
   for inputs that would overflow `_update`'s checked `_totalSupply +=
@@ -20,13 +20,13 @@ a sentinel rename is bundled with another upgrade.
   - was Foundry: `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe`
   - was Hardhat: `0x16d19ffa2817afa6662bacc108f4cf449a02cbe0851af283e8a378e8397d5305`
   - `ParkERC1967Proxy` and `ParkTimelockController` hashes unchanged.
-- **H-5** — `scripts/ops/safe-exec.ts` and `scripts/ops/schedule-upgrade.ts`
+- `scripts/ops/safe-exec.ts` and `scripts/ops/schedule-upgrade.ts`
   switch into "calldata-emit mode" when Safe `getThreshold() >= 2`: they
   build the SafeTx, compute the EIP-712 SafeTxHash, print both + operator
   upload instructions for Safe Wallet UI, and exit without on-chain action.
   Bootstrap (`threshold=1`) flow is unchanged. Production multisig deploys
   are now executable from the same scripts.
-- **M-2** — `scripts/ops/schedule-upgrade.ts` runs an upgrade-candidate
+- `scripts/ops/schedule-upgrade.ts` runs an upgrade-candidate
   preflight before queueing: rejects empty bytecode at `NEW_IMPL_ADDRESS`,
   asserts `proxiableUUID() == ERC-1967 impl slot` (UUPS compatibility),
   optionally asserts `implVersion()` matches `EXPECTED_IMPL_VERSION` env,
@@ -34,19 +34,19 @@ a sentinel rename is bundled with another upgrade.
   ERC-1967 slot. Catches the «schedule, wait, revert on execute» footgun.
 
 ### Added
-- **L-1** — `test_permit_revertsCrossChainReplay`: regression test that signs
+- `test_permit_revertsCrossChainReplay`: regression test that signs
   a permit at the current chainid, switches via `vm.chainId(42161)`, asserts
   `DOMAIN_SEPARATOR` rotates, and confirms the original signature reverts.
-- **M-7** — `ops/park-token-governance-abi.json`: separate ABI subset
+- `ops/park-token-governance-abi.json`: separate ABI subset
   containing role/upgrade/Timelock events + read-only governance query
   functions, for monitoring tools (Tenderly Alerts, Forta, The Graph).
   Distinct from `ops/210-base-abi.json` (deploy-time slim ABI).
-- **M-4 / M-5 / L-4** — `docs/UPGRADE-HAZARDS.md` adds H-6 (DEFAULT_ADMIN
-  renounce as accepted-by-design), H-7 (Timelock `updateDelay` unbounded —
-  monitor `MinDelayChange`), H-8 (UPGRADER_ROLE self-revoke recoverable —
-  alert + recovery procedure documented).
+- `docs/UPGRADE-HAZARDS.md` adds entries for DEFAULT_ADMIN renounce
+  (accepted-by-design), Timelock `updateDelay` unbounded (monitor
+  `MinDelayChange`), and UPGRADER_ROLE self-revoke (recoverable; alert +
+  recovery procedure documented).
 
-### Changed (mega-review batch1+batch2 earlier this session)
+### Changed (earlier this session)
 - `implVersion()` now returns `"v1.0.0"` (was `"base-1.0.0"`). Cosmetic
   rename — drops the historical `base-` prefix carried over from the
   internal `ParkTokenBase` working name. Bytecode hash for the
@@ -56,7 +56,7 @@ a sentinel rename is bundled with another upgrade.
   - was: `0xa51d1ca5caeb55dec90723bcad06080462be89e508be79978ec053991bf60842`
   - `ParkERC1967Proxy` and `ParkTimelockController` hashes are unchanged
     (neither references `implVersion`).
-- Any pre-audit on-chain instances continue to expose `implVersion() ==
+- Any earlier on-chain instances continue to expose `implVersion() ==
   "base-1.0.0"` indefinitely; they are not load-bearing and will be
   superseded by a fresh production deploy from this updated source after
   audit completion.
@@ -68,7 +68,7 @@ external audit.
 
 ### Deployment posture
 - Source-only release; no production deployment.
-- Pre-audit rehearsals on BNB Smart Chain (chainId 56) and Arbitrum One
+- Rehearsals on BNB Smart Chain (chainId 56) and Arbitrum One
   (chainId 42161) used a BOOTSTRAP-config (Safe 1/1, Timelock minDelay
   900 s) — they exist for operator validation only and have no
   audit-scope significance. Specific addresses are intentionally not

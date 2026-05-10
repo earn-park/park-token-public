@@ -2,10 +2,10 @@
 # Bytecode reproducibility check for audit verification.
 #
 # Computes deployedBytecode keccak256 hashes for both Foundry and Hardhat
-# artifact families (mega-review H-3: deploy-bsc.ts loads Hardhat artifacts;
-# Foundry-only baseline left a verification gap), then asserts each hash
-# against docs/BYTECODE-BASELINE.md and exits nonzero on any mismatch
-# (mega-review H-2: previous version printed-without-asserting).
+# artifact families — deploy-bsc.ts loads Hardhat artifacts, so a
+# Foundry-only baseline would leave a verification gap — then asserts
+# each hash against docs/BYTECODE-BASELINE.md and exits nonzero on any
+# mismatch (printing without asserting would let drift slip through).
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,7 +33,7 @@ npx hardhat compile 2>&1 | tail -3
 echo ""
 
 echo "=== Compiling Foundry artifacts (baseline anchor) ==="
-forge build --offline
+forge build
 echo ""
 
 echo "=== Computing bytecode hashes (Foundry + Hardhat) ==="

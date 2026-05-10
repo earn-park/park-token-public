@@ -16,14 +16,12 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
+      # Pin to the exact Foundry release whose commit (b0a9dd9c) is asserted
+      # by docs/BYTECODE-BASELINE.md. Bumping the version requires updating
+      # both the tag here AND the SHA assertion below in the same PR.
       - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
         with:
-          version: stable
-      # Pin to the exact Foundry commit documented in docs/AUDIT-SCOPE.md
-      # and asserted by docs/BYTECODE-BASELINE.md. Any drift here changes
-      # bytecode reproducibility — bump the SHA in source code AND in this
-      # workflow in the same PR (per mega-review MR-02 fix).
-      - run: foundryup --version "b0a9dd9c"
+          version: v1.5.1
       - name: Assert Foundry SHA matches baseline
         run: |
           set -euo pipefail
@@ -31,8 +29,8 @@ jobs:
           forge --version | grep -q 'b0a9dd9c' \
             || { echo "::error::Foundry SHA drift — expected b0a9dd9c, got $(forge --version)"; exit 1; }
       - run: forge fmt --check
-      - run: forge build --offline
-      - run: forge test --offline -vv
+      - run: forge build
+      - run: forge test -vv
 
   ts:
     name: TypeScript
@@ -45,6 +43,12 @@ jobs:
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '22.20.0'
+      # hardhat-foundry plugin invokes `forge` during `npx hardhat compile`
+      # to read foundry.toml remappings. Install Foundry on the same
+      # baseline SHA used by the forge job.
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: v1.5.1
       - run: npm ci --ignore-scripts
       - run: npm run deps:check-exact
       - run: npm run lint
@@ -52,7 +56,7 @@ jobs:
       # Compile Hardhat artifacts before hh:test runs. The TS test path
       # (build-bsc-calldata.ts + deploy-bsc.ts) loads compiled-artifact
       # JSON files from artifacts/, which is .gitignore'd. Without this
-      # step, hh:test partially fails on a clean clone (audit finding H-02).
+      # step, hh:test partially fails on a clean clone.
       - run: npx hardhat compile
       - run: npm run hh:test
 
@@ -65,13 +69,12 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
-        with:
-          version: stable
-      - run: foundryup --version "b0a9dd9c"
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '22.20.0'
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: v1.5.1
       # scripts/repro.sh:
       #   1. asserts forge --version SHA matches b0a9dd9c
       #   2. cleans out/ + cache_hardhat/ + artifacts/
@@ -79,6 +82,6 @@ jobs:
       #   4. computes deployedBytecode keccak256 for ParkToken / ParkERC1967Proxy /
       #      ParkTimelockController in BOTH artifact families
       #   5. asserts each of the 6 hashes matches docs/BYTECODE-BASELINE.md
-      #   exits non-zero on any drift. CertiK pre-audit M-02 fix.
+      #   exits non-zero on any drift.
       - name: Run scripts/repro.sh (asserts 6 baseline rows)
         run: bash scripts/repro.sh

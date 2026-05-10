@@ -10,7 +10,7 @@
 //   npx hardhat compile     # populate artifacts/
 //   node scripts/ops/build-governance-abi.mjs
 //
-// Audit M-04: makes the snapshot reproducible by any reviewer.
+// Makes the ABI snapshot reproducible by any reviewer.
 
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -60,7 +60,7 @@ const out = {
   generatedAt: new Date().toISOString(),
   generatedBy: "scripts/ops/build-governance-abi.mjs",
   description:
-    "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (deploy-time slim ABI). Mega-review M-7.",
+    "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (deploy-time slim ABI).",
   contracts: {
     ParkToken: {
       address: "<proxy address depends on chain>",

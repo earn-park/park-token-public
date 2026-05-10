@@ -3,9 +3,6 @@
 // runs post-upgrade verification, and persists an entry to the per-chain
 // upgrade-ledger so the schedule->execute lifecycle is durable on-disk.
 //
-// Closes audit-2026-05-10 H-04 (execution lifecycle has no helper / ledger
-// and accepts low-delay posture; raw `cast send` was the previous path).
-//
 // Required env (via chain-resolver):
 //   TARGET_CHAIN              — bsc | bscTestnet | arbitrum
 //   {CHAIN}_RPC_URL, {CHAIN}_PRIVATE_KEY
@@ -177,7 +174,7 @@ async function main(): Promise<void> {
     throw new Error(`EXPECTED_OPERATION_ID mismatch: got ${recomputedOpId}, expected ${expectedOpId}`);
   }
 
-  // Production-floor enforcement (audit H-04 sub-issue).
+  // Production-floor enforcement.
   const productionMode = (process.env["PRODUCTION_MODE"] ?? "false").trim().toLowerCase() === "true";
   if (productionMode) {
     const liveDelay = (await publicClient.readContract({
@@ -273,7 +270,7 @@ async function main(): Promise<void> {
     console.log(`  INFO: DOMAIN_SEPARATOR unavailable on new impl`);
   }
 
-  // Append to durable ledger (audit H-04).
+  // Append to durable ledger.
   const ledgerPath = process.env["LEDGER_PATH"] ??
     join(process.cwd(), `ops/upgrade-ledger-${targetChain}.json`);
   const existing = existsSync(ledgerPath)
