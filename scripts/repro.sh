@@ -33,7 +33,7 @@ npx hardhat compile 2>&1 | tail -3
 echo ""
 
 echo "=== Compiling Foundry artifacts (baseline anchor) ==="
-forge build --offline
+forge build
 echo ""
 
 echo "=== Computing bytecode hashes (Foundry + Hardhat) ==="
