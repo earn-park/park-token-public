@@ -13,6 +13,14 @@ Reproducibility check: run `./scripts/repro.sh` from a clean clone and compare
 the printed hashes against the table below. **Any mismatch indicates supply-chain
 drift — investigate before continuing.**
 
+> **Note on Foundry hashes**: Foundry encodes absolute source paths into the
+> compiler metadata trailer (the last ~52 bytes of the deployed bytecode), so
+> Foundry-family hashes are environment-dependent. The values below are the
+> CI-Linux build (`ubuntu-22.04`, repo at `/home/runner/work/park-token-public/park-token-public/`).
+> Local Mac/Windows builds will diverge in the metadata trailer but the
+> *runtime* bytecode (everything before the trailer) is identical. Hardhat
+> normalises paths and is environment-independent.
+
 **Two artifact families are baselined — both must match.** The deploy path
 (`scripts/deploy/base/deploy-bsc.ts`) loads Hardhat artifacts; Foundry is the
 canonical anchor. The same Solidity source produces different metadata bytes
@@ -21,11 +29,11 @@ between toolchains, so the Foundry and Hardhat hashes diverge intentionally.
 
 | Contract | Toolchain | deployedBytecode keccak256 |
 |---|---|---|
-| `ParkToken` (Foundry) | foundry 1.5.1-stable | `0x893c318799595c18b06b6a57a4130fa97da2993fad2224252e92767c41632f83` |
+| `ParkToken` (Foundry) | foundry 1.5.1-stable | `0xf6b360f6d4cd2603304fa48fd79cbd396314c6c8443be448539975921c27758d` |
 | `ParkToken` (Hardhat) | hardhat 3.4.1 | `0x9009768ae8f21b9334716b30f00a4d060f1b7c29d81f215c3ba714e3ec6c08ba` |
-| `ParkERC1967Proxy` (Foundry) | foundry 1.5.1-stable | `0x169c8d57272527aa60ca40f52865a8400eda3e2a0cc7edffe1a55ec9e96a87e8` |
+| `ParkERC1967Proxy` (Foundry) | foundry 1.5.1-stable | `0x967ba018df73cf1b22c6073907ba0d107582c812e34a04925a1120f56401ea34` |
 | `ParkERC1967Proxy` (Hardhat) | hardhat 3.4.1 | `0xfa7c32f150b12695112b2747006e70fd00acb277ebfa7619780d95f5a3a04c32` |
-| `ParkTimelockController` (Foundry) | foundry 1.5.1-stable | `0x0088b332b105c5785425e90b0dbb4f668463e08990ad322564f965b33d8960b7` |
+| `ParkTimelockController` (Foundry) | foundry 1.5.1-stable | `0x3a0c9bd34c5788ccb1cf6d0bc2ba59d5f828ca21a636826199f9508cb08f2f2c` |
 | `ParkTimelockController` (Hardhat) | hardhat 3.4.1 | `0xcb779433afe4d79f0e3482401f327c0546d77efb4deeef00e4bd52b4694f6cb9` |
 
 If your `forge --version` SHA differs from `b0a9dd9c`, hashes WILL drift — pin
