@@ -15,9 +15,12 @@ We commit to:
 
 ## Audit window
 
-This repository is the audit-handoff snapshot for PARK Token v1.0.0
-deployed on BNB Smart Chain (chainId 56) and Arbitrum One (chainId 42161)
-at proxy address `0xA4a83c12bFed8Ba35da4a6203f6F5E783a887BCC`.
+This repository is the audit-handoff snapshot for PARK Token v1.0.0.
+The token's first production deployment will happen post-audit; any
+on-chain instances at the time of audit (BSC mainnet, Arbitrum One)
+are pre-audit test rehearsals and are not load-bearing for the audit
+scope. Auditor's reasoning should attach to the source in this repo,
+not to any specific deployed proxy.
 
 During the active audit period, security-impacting findings should be
 disclosed through the auditor's communication channel as well as via
