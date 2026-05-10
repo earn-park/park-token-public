@@ -590,6 +590,45 @@ contract ParkTokenTest is Test {
         token.permit(owner, recipient, 100, deadline, vFlipped, r, sFlipped);
     }
 
+    /// @notice Cross-chain permit replay regression (mega-review L-1).
+    ///         Confirms that DOMAIN_SEPARATOR rotates with `block.chainid`,
+    ///         so a permit signature valid on chainid 56 (BSC) cannot be
+    ///         replayed on chainid 42161 (Arbitrum) — even when both chains
+    ///         host the same proxy address via CREATE3 + the same nonce
+    ///         hasn't yet been consumed on the destination chain.
+    function test_permit_revertsCrossChainReplay() public {
+        (address owner, uint256 pk) = makeAddrAndKey("permitOwnerCrossChain");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // 1. Sign a permit at the current chainid (default 31337 in foundry).
+        //    The signature is bound to `token.DOMAIN_SEPARATOR()`, which
+        //    embeds `block.chainid` per EIP-712.
+        bytes32 digestSrc = _permitDigest(owner, recipient, 100, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digestSrc);
+        bytes32 domainSrc = token.DOMAIN_SEPARATOR();
+
+        // 2. Switch to a different chainid (simulate fork to Arbitrum).
+        //    OZ ERC20Permit recomputes DOMAIN_SEPARATOR lazily based on
+        //    block.chainid, so this rotates the domain even though the
+        //    contract address is identical.
+        vm.chainId(42161);
+        bytes32 domainDst = token.DOMAIN_SEPARATOR();
+        assertTrue(domainSrc != domainDst, "DOMAIN_SEPARATOR must rotate with chainid");
+
+        // 3. The original signature must now fail. ECDSA.recover yields a
+        //    different signer for the rotated digest — OZ's permit then
+        //    reverts with ERC2612InvalidSigner(recovered, owner). We don't
+        //    pin the exact recovered address (depends on signature math), so
+        //    only assert that any revert occurs and that allowance is unchanged.
+        uint256 allowanceBefore = token.allowance(owner, recipient);
+        vm.expectRevert();
+        token.permit(owner, recipient, 100, deadline, v, r, s);
+        assertEq(token.allowance(owner, recipient), allowanceBefore);
+
+        // 4. Restore chainid for downstream tests in the same suite.
+        vm.chainId(31337);
+    }
+
     function _permitDigest(address owner, address spender, uint256 value, uint256 deadline)
         internal
         view

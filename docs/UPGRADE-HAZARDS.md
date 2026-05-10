@@ -107,3 +107,73 @@ Consequences if the call is skipped after an upgrade:
 **Scope reminder:** this is operational hygiene, not a contract
 invariant. The on-chain proxy state is correct after `execute(...)` —
 the explorer is the only thing that needs re-pointing.
+
+---
+
+## H-6. `DEFAULT_ADMIN_ROLE` renounce path is open by design
+
+`renounceRole(DEFAULT_ADMIN_ROLE, account)` is reachable via OZ's
+`AccessControlDefaultAdminRules.renounceRole` (which routes through the
+two-step transfer flow with the configured `defaultAdminDelay`). The
+`ParkToken._guard` overrides only block `TIMELOCK_ADMIN_ROLE` renounce.
+Renouncing `DEFAULT_ADMIN_ROLE` permanently disables `mint()`,
+`setContractURI()`, role-administration of `RESCUER_ROLE`, and any
+future admin-gated function — the role becomes ungrantable.
+
+**Why we accept this:** the two-step transfer flow + `defaultAdminDelay`
+(>= 24 h on-chain bound) gives a safety window. Removing the renounce
+path entirely would also remove the legitimate "freeze admin" use case
+(e.g. credibly committing to no further mints post-distribution).
+Mega-review M-4 raised this as a cosmetic-policy gap.
+
+**Operator action:**
+- Treat `DefaultAdminTransferScheduled` to `0x0` (the renounce signal)
+  as a CRITICAL alert in monitoring.
+- Document any deliberate renounce in a public release note + tag the
+  commit / deployment manifest before broadcasting.
+- Consider blocking renounce on-chain in a future implementation if the
+  product decision shifts to "admin must remain forever."
+
+---
+
+## H-7. Timelock `updateDelay` is unbounded
+
+OZ `TimelockController.updateDelay()` is a self-call (the Timelock
+schedules a call to itself); this contract does not set a min/max. An
+adversarial proposal queue could schedule `updateDelay(0)` and execute
+after the current `getMinDelay()` window, removing all timelock
+protection on subsequent operations. Mega-review M-5.
+
+**Mitigation:**
+- The current Timelock is the OZ contract — modifying it would require a
+  new wrapper deployment + governance rotation. Out of scope for the V1
+  audit.
+- **Operator action:** alert on every `MinDelayChange(oldDuration, newDuration)`
+  emitted by the Timelock; reject any proposal where `newDuration` is
+  below the documented production target (`21600s`). The
+  `ops/park-token-governance-abi.json` event subset includes
+  `MinDelayChange` for monitoring tools.
+- A future Timelock-wrapper deployment can enforce a `minDelay >= 21600`
+  invariant at the contract level. Track in the upgrade backlog.
+
+---
+
+## H-8. `UPGRADER_ROLE` self-revoke is recoverable but liveness-impacting
+
+The Timelock holds `UPGRADER_ROLE` and is itself the
+`TIMELOCK_ADMIN_ROLE` admin. The `_guard` overrides allow the Timelock
+to revoke its own `UPGRADER_ROLE` (no self-revoke block on this role).
+If executed, all subsequent UUPS upgrades revert until
+`TIMELOCK_ADMIN_ROLE` re-grants `UPGRADER_ROLE` (which itself requires
+scheduling through the same Timelock — a chicken-and-egg recovery
+window of `getMinDelay()`). Mega-review L-4.
+
+**Why we accept this:** the symmetric guard on `TIMELOCK_ADMIN_ROLE`
+self-revoke explicitly allows `UPGRADER_ROLE` revocation (the inverse
+would brick the rotation flow described in H-2 above).
+
+**Operator action:**
+- Alert on `RoleRevoked(UPGRADER_ROLE, <timelock>, <revoker>)`.
+- Recovery procedure: schedule `grantRole(UPGRADER_ROLE, <timelock>)`
+  via the same Timelock (proposer = Safe), wait `getMinDelay()`, execute.
+  Document the incident; update audit-trail.

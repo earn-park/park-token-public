@@ -2,7 +2,44 @@
 
 ## Unreleased
 
-### Changed
+### Changed (mega-review batch3)
+- **L-2** — `mint()` now precomputes `amount > cap() - totalSupply()` and
+  reverts with `ERC20ExceededCap(supply + amount, cap)` (canonical OZ shape,
+  unchecked-wrapped for extreme inputs). Eliminates the Panic(0x11) path
+  for inputs that would overflow `_update`'s checked `_totalSupply +=
+  amount`. Bytecode for `ParkToken` changes:
+  - new Foundry: `0x72f6be4bfca1d2b31f4c4b2f0da0dbf1e7b889bf80698198c5dc9038f7dd9dd0`
+  - new Hardhat: `0x871f179d9ce0bcab930a3a9263a604ac3bf545fa26243510084bf6acba9839d2`
+  - was Foundry: `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe`
+  - was Hardhat: `0x16d19ffa2817afa6662bacc108f4cf449a02cbe0851af283e8a378e8397d5305`
+  - `ParkERC1967Proxy` and `ParkTimelockController` hashes unchanged.
+- **H-5** — `scripts/ops/safe-exec.ts` and `scripts/ops/schedule-upgrade.ts`
+  switch into "calldata-emit mode" when Safe `getThreshold() >= 2`: they
+  build the SafeTx, compute the EIP-712 SafeTxHash, print both + operator
+  upload instructions for Safe Wallet UI, and exit without on-chain action.
+  Bootstrap (`threshold=1`) flow is unchanged. Production multisig deploys
+  are now executable from the same scripts.
+- **M-2** — `scripts/ops/schedule-upgrade.ts` runs an upgrade-candidate
+  preflight before queueing: rejects empty bytecode at `NEW_IMPL_ADDRESS`,
+  asserts `proxiableUUID() == ERC-1967 impl slot` (UUPS compatibility),
+  optionally asserts `implVersion()` matches `EXPECTED_IMPL_VERSION` env,
+  and rejects no-op upgrades where new impl == current impl in the
+  ERC-1967 slot. Catches the «schedule, wait, revert on execute» footgun.
+
+### Added
+- **L-1** — `test_permit_revertsCrossChainReplay`: regression test that signs
+  a permit at the current chainid, switches via `vm.chainId(42161)`, asserts
+  `DOMAIN_SEPARATOR` rotates, and confirms the original signature reverts.
+- **M-7** — `ops/park-token-governance-abi.json`: separate ABI subset
+  containing role/upgrade/Timelock events + read-only governance query
+  functions, for monitoring tools (Tenderly Alerts, Forta, The Graph).
+  Distinct from `ops/210-base-abi.json` (deploy-time slim ABI).
+- **M-4 / M-5 / L-4** — `docs/UPGRADE-HAZARDS.md` adds H-6 (DEFAULT_ADMIN
+  renounce as accepted-by-design), H-7 (Timelock `updateDelay` unbounded —
+  monitor `MinDelayChange`), H-8 (UPGRADER_ROLE self-revoke recoverable —
+  alert + recovery procedure documented).
+
+### Changed (mega-review batch1+batch2 earlier this session)
 - `implVersion()` now returns `"v1.0.0"` (was `"base-1.0.0"`). Cosmetic
   rename — drops the historical `base-` prefix carried over from the
   internal `ParkTokenBase` working name. Bytecode hash for the

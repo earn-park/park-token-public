@@ -305,6 +305,24 @@ contract ParkToken is
     function mint(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (amount == 0) revert ZeroMintAmount();
         if (to == address(this)) revert CannotMintToSelf();
+        // Local cap precheck so the canonical `ERC20ExceededCap` error path
+        // is the one taken even for inputs that would overflow `_update`'s
+        // checked `_totalSupply += amount` arithmetic and surface as
+        // Panic(0x11) instead (mega-review L-2). Subtraction `maxCap - supply`
+        // is safe: `supply <= cap` is invariant (every increase routes through
+        // this gate or `_mint` in initialize). The `unchecked` block on the
+        // revert preserves the OZ canonical `(increasedSupply, cap)` error
+        // shape for normal-overrun inputs (where `supply + amount` doesn't
+        // overflow) and gracefully handles extreme inputs where it does
+        // (the wrapped value is meaningless for those, but the mint still
+        // correctly aborts via the custom error rather than Panic).
+        uint256 supply = totalSupply();
+        uint256 maxCap = cap();
+        if (amount > maxCap - supply) {
+            unchecked {
+                revert ERC20ExceededCap(supply + amount, maxCap);
+            }
+        }
         _mint(to, amount);
     }
 

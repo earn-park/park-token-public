@@ -142,13 +142,22 @@ async function main(): Promise<void> {
     publicClient.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "getOwners" }),
     publicClient.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "nonce" })
   ]);
-  // Single-signer helper: each signer invokes this script independently to collect their
-  // EIP-712 signature. For threshold > 1, the final caller concatenates all collected
-  // signatures and passes them to execTransaction. For 1/1 Safes this script submits directly.
-  if (threshold !== 1n) throw new Error(`Safe threshold ${threshold} — this helper submits a single-signer SafeTx. For threshold > 1, collect each signer's EIP-712 signature separately and concatenate before calling execTransaction.`);
+  // Self-signer / multisig dual-mode (mega-review H-5).
+  //
+  // Threshold == 1 (bootstrap): script signs and submits execTransaction
+  //   directly in the same process. Used for test infrastructure deploys.
+  //
+  // Threshold >= 2 (production): script switches to "calldata-emit mode" —
+  //   builds the SafeTx + computes the SafeTxHash and prints them to stdout
+  //   for the operator to upload to the Safe Wallet UI / Safe Transaction
+  //   Service, where the >=N owners co-sign and execute via the official
+  //   multisig flow. The script does NOT submit; it exits successfully
+  //   after emitting the calldata. Set VESTING_ALLOW_BOOTSTRAP_THRESHOLD=
+  //   true (no analogue here — Safe-exec policy is symmetric).
   if (!owners.map((o) => o.toLowerCase()).includes(account.address.toLowerCase())) {
     throw new Error(`Signer ${account.address} not Safe owner. Owners: ${owners.join(", ")}`);
   }
+  const isBootstrap = threshold === 1n;
 
   console.log(`Safe:        ${safeAddress}`);
   console.log(`Target:      ${target}`);
@@ -171,6 +180,44 @@ async function main(): Promise<void> {
     nonce: safeNonce
   } as const;
 
+  if (!isBootstrap) {
+    // Multisig calldata-emit mode (mega-review H-5). Prints the SafeTx
+    // payload + the EIP-712 SafeTxHash so operators can upload via the
+    // Safe Wallet UI / Safe Transaction Service. Does NOT submit.
+    const { hashTypedData } = await import("viem");
+    const safeTxHash = hashTypedData({
+      domain: { chainId: BigInt(chainId), verifyingContract: safeAddress },
+      types: SAFE_TX_TYPES,
+      primaryType: "SafeTx",
+      message: safeTx
+    });
+    console.log(`\n=== MULTISIG MODE (threshold=${threshold}) ===`);
+    console.log(`This Safe requires ${threshold} signatures. This script will`);
+    console.log(`NOT submit; it emits the SafeTx for operator upload.`);
+    console.log(`\nSafeTx payload:`);
+    console.log(JSON.stringify({
+      to: safeTx.to,
+      value: safeTx.value.toString(),
+      data: safeTx.data,
+      operation: safeTx.operation,
+      safeTxGas: safeTx.safeTxGas.toString(),
+      baseGas: safeTx.baseGas.toString(),
+      gasPrice: safeTx.gasPrice.toString(),
+      gasToken: safeTx.gasToken,
+      refundReceiver: safeTx.refundReceiver,
+      nonce: safeTx.nonce.toString()
+    }, null, 2));
+    console.log(`\nSafeTxHash: ${safeTxHash}`);
+    console.log(`\nNext steps:`);
+    console.log(`  1. Open https://app.safe.global/transactions/queue?safe=<chain>:${safeAddress}`);
+    console.log(`  2. New tx → Contract interaction → fill the fields above`);
+    console.log(`  3. Collect ${threshold} signatures from owners: ${owners.join(", ")}`);
+    console.log(`  4. Execute from any owner once the threshold is met`);
+    console.log(`\nNo on-chain action taken by this script.`);
+    return;
+  }
+
+  // Bootstrap (threshold=1): single-signer direct submit.
   const signature = await walletClient.signTypedData({
     account,
     domain: { chainId: BigInt(chainId), verifyingContract: safeAddress },
