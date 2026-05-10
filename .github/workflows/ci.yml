@@ -49,6 +49,11 @@ jobs:
       - run: npm run deps:check-exact
       - run: npm run lint
       - run: npx tsc --noEmit
+      # Compile Hardhat artifacts before hh:test runs. The TS test path
+      # (build-bsc-calldata.ts + deploy-bsc.ts) loads compiled-artifact
+      # JSON files from artifacts/, which is .gitignore'd. Without this
+      # step, hh:test partially fails on a clean clone (audit finding H-02).
+      - run: npx hardhat compile
       - run: npm run hh:test
 
   repro:

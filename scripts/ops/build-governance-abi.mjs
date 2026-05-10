@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+// Generates ops/park-token-governance-abi.json from compiled Hardhat
+// artifacts. This ABI subset is for operator MONITORING (Tenderly Alerts /
+// Forta / OZ Defender / The Graph) covering role mutations, upgrade
+// events, Timelock scheduling/execution, and admin transfers. Distinct
+// from ops/210-base-abi.json (deploy-time) and ops/park-token-integrator-abi.json
+// (downstream wallets).
+//
+// Usage:
+//   npx hardhat compile     # populate artifacts/
+//   node scripts/ops/build-governance-abi.mjs
+//
+// Audit M-04: makes the snapshot reproducible by any reviewer.
+
+import { readFileSync, writeFileSync } from "node:fs";
+
+const tokenAbi = JSON.parse(
+  readFileSync("artifacts/contracts/ParkToken.sol/ParkToken.json", "utf-8")
+).abi;
+const tlAbi = JSON.parse(
+  readFileSync(
+    "artifacts/contracts/imports/TimelockControllerImport.sol/ParkTimelockController.json",
+    "utf-8"
+  )
+).abi;
+const proxyAbi = JSON.parse(
+  readFileSync(
+    "artifacts/contracts/imports/ERC1967ProxyImport.sol/ParkERC1967Proxy.json",
+    "utf-8"
+  )
+).abi;
+
+const tokenGovEvents = [
+  "RoleGranted", "RoleRevoked", "RoleAdminChanged",
+  "DefaultAdminTransferScheduled", "DefaultAdminTransferCanceled",
+  "DefaultAdminDelayChangeScheduled", "DefaultAdminDelayChangeCanceled",
+  "Upgraded", "Paused", "Unpaused", "Initialized",
+  "RescuedERC20", "RescuedETH", "ContractURIUpdated", "Transfer"
+];
+const tokenGovFns = [
+  "hasRole", "getRoleAdmin",
+  "defaultAdmin", "pendingDefaultAdmin", "defaultAdminDelay",
+  "owner", "implVersion", "cap", "totalSupply", "DOMAIN_SEPARATOR"
+];
+const tlEvents = [
+  "CallScheduled", "CallExecuted", "CallSalt", "Cancelled",
+  "MinDelayChange", "RoleGranted", "RoleRevoked", "RoleAdminChanged"
+];
+const tlFns = [
+  "getMinDelay", "hasRole",
+  "isOperation", "isOperationPending", "isOperationReady", "isOperationDone",
+  "getTimestamp"
+];
+const proxyEvents = ["Upgraded", "AdminChanged", "BeaconUpgraded"];
+
+const select = (abi, names, kinds) =>
+  abi.filter((x) => kinds.includes(x.type) && names.includes(x.name));
+
+const out = {
+  generatedAt: new Date().toISOString(),
+  generatedBy: "scripts/ops/build-governance-abi.mjs",
+  description:
+    "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (deploy-time slim ABI). Mega-review M-7.",
+  contracts: {
+    ParkToken: {
+      address: "<proxy address depends on chain>",
+      abi: select(tokenAbi, [...tokenGovEvents, ...tokenGovFns], ["event", "function", "error"])
+    },
+    ParkTimelockController: {
+      address: "<timelock address per chain>",
+      abi: select(tlAbi, [...tlEvents, ...tlFns], ["event", "function"])
+    },
+    ParkERC1967Proxy: {
+      address: "<same as ParkToken proxy>",
+      abi: select(proxyAbi, proxyEvents, ["event"])
+    }
+  }
+};
+
+writeFileSync("ops/park-token-governance-abi.json", JSON.stringify(out, null, 2));
+console.log(
+  "written ops/park-token-governance-abi.json:",
+  "ParkToken events:",
+  out.contracts.ParkToken.abi.filter((x) => x.type === "event").length,
+  "fns:",
+  out.contracts.ParkToken.abi.filter((x) => x.type === "function").length,
+  "/ Timelock events:",
+  out.contracts.ParkTimelockController.abi.filter((x) => x.type === "event").length
+);

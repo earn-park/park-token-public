@@ -109,7 +109,66 @@ async function main(): Promise<void> {
   if (upgraderAddr.toLowerCase() === ZERO) zeroFields.push("upgrader");
   if (rescuerAddr === "") zeroFields.push("rescuer");
 
+  // Audit M-01 — strict semantic validation. The original PLACEHOLDER
+  // sentinel only catches "address is zero / not set" cases. Operators
+  // can still feed non-zero but semantically broken combos that produce
+  // FINAL (signable) calldata which the contract will revert at execute
+  // time. Mirror initialize() pre-checks here so signable artefacts are
+  // truly signable.
+  const semanticIssues: string[] = [];
+  // (1) Duplicate-role detection — initialize reverts DuplicateRoleAssignment
+  //     when defaultAdmin == upgrader == rescuer, etc. (any two equal).
+  if (rescuerAddr !== "" && rescuerAddr.toLowerCase() === safeAddr.toLowerCase()) {
+    semanticIssues.push("rescuer == defaultAdmin (DuplicateRoleAssignment guard will revert initialize)");
+  }
+  if (upgraderAddr.toLowerCase() !== ZERO && upgraderAddr.toLowerCase() === safeAddr.toLowerCase()) {
+    semanticIssues.push("upgrader == defaultAdmin (DuplicateRoleAssignment guard will revert initialize)");
+  }
+  if (rescuerAddr !== "" && upgraderAddr.toLowerCase() !== ZERO &&
+      rescuerAddr.toLowerCase() === upgraderAddr.toLowerCase()) {
+    semanticIssues.push("rescuer == upgrader (DuplicateRoleAssignment guard will revert initialize)");
+  }
+  // (2) Empty contract URI — initialize requires non-empty (NoEmptyContractURI).
+  if (!contractURI || contractURI.trim() === "") {
+    semanticIssues.push("contractURI is empty (NoEmptyContractURI guard will revert)");
+  }
+  // (3) initialHolder == predicted-proxy — locks 1B PARK at the proxy itself
+  //     (rescueERC20(self) reverts CannotRescueSelf — supply unrecoverable).
+  //     We can only check this when BSC_DEPLOYER_ADDRESS is set so we know
+  //     the predicted address.
+  let earlyPredicted: string | null = null;
+  if (deployerEnv !== undefined && isHexAddress(deployerEnv)) {
+    earlyPredicted = computeProxyAddress({
+      factory: CREATE3_FACTORY_REGISTRY[chainKey].address,
+      deployer: deployerEnv as `0x${string}`,
+      salt: PARK_TOKEN_SALT
+    });
+    if (initialHolder.toLowerCase() === earlyPredicted.toLowerCase()) {
+      semanticIssues.push(
+        `initialHolder == predicted proxy ${earlyPredicted} — 1B PARK supply would be locked at the proxy itself ` +
+          `(rescueERC20(this) reverts CannotRescueSelf). Set BSC_INITIAL_HOLDER to a different address.`
+      );
+    }
+  }
+  // (4) Admin delay outside contract bounds — initialize reverts at
+  //     defaultAdminDelay < 24h or > 30d.
+  if (adminDelay < 86_400 || adminDelay > 2_592_000) {
+    semanticIssues.push(
+      `defaultAdminTransferDelay=${adminDelay}s outside [86400, 2592000]; initialize will revert AdminDelayOutOfBounds`
+    );
+  }
+  // (5) Upgrader EOA detection (UpgraderNotContract guard). Best-effort
+  //     warning — we don't have RPC access here, so we can't read
+  //     upgrader.code.length. Operator must rely on the post-deploy
+  //     assertion + UPGRADE-HAZARDS H-3 monitoring.
+  // (left as runtime-only check, no addition here.)
+
   const isPlaceholder = zeroFields.length > 0;
+  const hasSemanticIssues = semanticIssues.length > 0;
+  // The artefact is signable only when BOTH conditions hold:
+  //   - no zero/missing required fields
+  //   - no semantic invariant violation
+  const isFinalSignable = !isPlaceholder && !hasSemanticIssues;
 
   // Use ZERO as the wire-encoded sentinel when rescuer is not yet set.
   // The contract's Zero* guards will reject this calldata — intentional,
@@ -162,11 +221,18 @@ async function main(): Promise<void> {
   const calldataArtefact = {
     chain: chainKey,
     chainId: factory.chainId,
-    artefactStatus: isPlaceholder ? "PLACEHOLDER (review-only)" : "FINAL (signable)",
-    note: isPlaceholder
-      ? `Placeholder fields: [${zeroFields.join(", ")}]. The encoded calldata is guaranteed to revert on-chain (Zero* and DuplicateRoleAssignment guards in initialize). Set the corresponding env var(s) and re-run to produce signable calldata.`
-      : "Final calldata. Verify each field of initConfigHumanReadable matches the agreed governance parameters before signing.",
+    artefactStatus: isFinalSignable
+      ? "FINAL (signable)"
+      : isPlaceholder
+        ? "PLACEHOLDER (review-only — missing required fields)"
+        : "INVALID (review-only — semantic invariant violation)",
+    note: isFinalSignable
+      ? "Final calldata. Verify each field of initConfigHumanReadable matches the agreed governance parameters before signing."
+      : isPlaceholder
+        ? `Placeholder fields: [${zeroFields.join(", ")}]. The encoded calldata is guaranteed to revert on-chain (Zero* and DuplicateRoleAssignment guards in initialize). Set the corresponding env var(s) and re-run to produce signable calldata.`
+        : `Semantic invariant violation: [${semanticIssues.join("; ")}]. Calldata will revert on-chain at initialize() time. Audit M-01 — strict validator.`,
     zeroFields,
+    semanticIssues,
     timelockDelay,
     initConfigHumanReadable: cfg,
     initializeCalldata: initData,

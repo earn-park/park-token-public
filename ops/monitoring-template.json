@@ -1,7 +1,7 @@
 {
-  "_doc": "Monitoring alert template for PARK Token deployments. Operators MUST instantiate this per chain (BSC, Arbitrum, future) before any production deploy. Hook into Tenderly Alerts, Forta agents, OpenZeppelin Defender Sentinels, or in-house infra. CertiK pre-audit H-03 + M-06.",
-  "_template_version": "1.0",
-  "_generated": "2026-05-10",
+  "_doc": "Monitoring alert template for PARK Token deployments. Operators MUST instantiate this per chain (BSC, Arbitrum, future) before any production deploy. Hook into Tenderly Alerts, Forta agents, OpenZeppelin Defender Sentinels, or in-house infra. CertiK pre-audit H-03 + M-06; audit-2026-05-10 CR-02/CR-03/H-03/M-03 (event signature fixes + bytes32 role hashes + UPGRADER grant alert + pre-execute updateDelay detector + CallExecuted reconciliation).",
+  "_template_version": "2.0",
+  "_generated": "2026-05-11",
   "_substitution_keys": {
     "${CHAIN}": "bsc | arbitrum | ...",
     "${PROXY}": "PARK Token proxy address",
@@ -9,8 +9,23 @@
     "${SAFE}": "Safe (DEFAULT_ADMIN) address",
     "${RESCUER}": "Rescuer EOA / Safe address",
     "${PAGER_EMAIL}": "operator email or PagerDuty webhook URL",
-    "${SLACK_HIGH}": "Slack webhook for HIGH alerts",
-    "${SLACK_INFO}": "Slack webhook for INFO alerts"
+    "${SLACK_HIGH}": "Slack webhook for HIGH/CRITICAL alerts",
+    "${SLACK_INFO}": "Slack webhook for INFO/audit-trail alerts"
+  },
+  "_role_hashes": {
+    "_doc": "OZ canonical role hashes — substitute literals into provider rules; do NOT use symbolic names (audit CR-02). Each is keccak256(role-name).",
+    "DEFAULT_ADMIN_ROLE": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "UPGRADER_ROLE":      "0x189ab7a9244df0848122154315af71fe140f3db0fe014031783b0946b8c9d2e3",
+    "RESCUER_ROLE":       "0xcf6f9f892731e14b8859835f2ff35575f447fb501f46243c4eb8bac19e31a050",
+    "TIMELOCK_ADMIN_ROLE":"0x5f58e3a2316349923ce3780f8d587db2d72378aed66a8261c916544fa6846ca5",
+    "PROPOSER_ROLE":      "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
+    "EXECUTOR_ROLE":      "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
+    "CANCELLER_ROLE":     "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783"
+  },
+  "_function_selectors": {
+    "_doc": "Used by pre-execute Timelock proposal decoders. selector = keccak256(signature)[0:4].",
+    "Timelock.updateDelay(uint256)": "0x64d62353",
+    "ParkToken.upgradeToAndCall(address,bytes)": "0x4f1ef286"
   },
   "alerts": [
     {
@@ -21,18 +36,31 @@
         "event": "MinDelayChange(uint256 oldDuration, uint256 newDuration)",
         "filter": "newDuration < 21600"
       },
-      "rationale": "Reducing minDelay below 6h shortens the operator's reaction window before any subsequent upgrade. Reject any value below the documented production policy.",
+      "rationale": "Reducing minDelay below 6h shortens the operator's reaction window before any subsequent upgrade. Reject any value below the documented production policy. POST-EXECUTE backstop — primary detection is TIMELOCK-UPDATEDELAY-PRE-EXECUTE below.",
       "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
       "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-7-timelock-updatedelay-is-unbounded",
       "responseSLA": "15min ack / 60min decision"
     },
     {
-      "id": "ROLE-GRANT-TIMELOCK-ADMIN",
+      "id": "TIMELOCK-UPDATEDELAY-PRE-EXECUTE",
+      "severity": "CRITICAL",
+      "trigger": {
+        "address": "${TIMELOCK}",
+        "event": "CallScheduled(bytes32 id, uint256 index, address target, uint256 value, bytes data, bytes32 predecessor, uint256 delay)",
+        "filter": "target == ${TIMELOCK} && data[0:4] == 0x64d62353 && abi.decode(data[4:36], (uint256)) < 21600"
+      },
+      "rationale": "Pre-execute detector for Timelock self-calls invoking updateDelay(uint256). Catches a delay-reduction proposal at SCHEDULE time, before the delay window elapses — operator can call cancel(opId) within getMinDelay() seconds. Audit CR-03.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-7-timelock-updatedelay-is-unbounded",
+      "responseSLA": "15min ack / immediate cancel evaluation"
+    },
+    {
+      "id": "ROLE-GRANT-TIMELOCK-ADMIN-NON-TIMELOCK",
       "severity": "CRITICAL",
       "trigger": {
         "address": "${PROXY}",
         "event": "RoleGranted(bytes32 role, address account, address sender)",
-        "filter": "role == TIMELOCK_ADMIN_ROLE && account != ${TIMELOCK}"
+        "filter": "role == 0x5f58e3a2316349923ce3780f8d587db2d72378aed66a8261c916544fa6846ca5 && account != ${TIMELOCK}"
       },
       "rationale": "TIMELOCK_ADMIN_ROLE granted to anything other than the Timelock contract itself breaks the role-isolation invariant and lets the new holder grant UPGRADER_ROLE arbitrarily. Mega-review M-3.",
       "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
@@ -40,12 +68,25 @@
       "responseSLA": "15min ack / 30min decision"
     },
     {
+      "id": "ROLE-GRANT-UPGRADER-NON-TIMELOCK",
+      "severity": "CRITICAL",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RoleGranted(bytes32 role, address account, address sender)",
+        "filter": "role == 0x189ab7a9244df0848122154315af71fe140f3db0fe014031783b0946b8c9d2e3 && account != ${TIMELOCK}"
+      },
+      "rationale": "UPGRADER_ROLE granted to anything other than the Timelock contract bypasses the entire timelock-mediated upgrade protection — the new holder can immediately call upgradeToAndCall on the proxy. Audit CR-02 (closes the blind spot — symmetric coverage with TIMELOCK_ADMIN_ROLE grant alert).",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-8-upgrader_role-self-revoke-is-recoverable-but-liveness-impacting",
+      "responseSLA": "5min ack / immediate response"
+    },
+    {
       "id": "ROLE-REVOKE-UPGRADER",
       "severity": "HIGH",
       "trigger": {
         "address": "${PROXY}",
         "event": "RoleRevoked(bytes32 role, address account, address sender)",
-        "filter": "role == UPGRADER_ROLE && account == ${TIMELOCK}"
+        "filter": "role == 0x189ab7a9244df0848122154315af71fe140f3db0fe014031783b0946b8c9d2e3 && account == ${TIMELOCK}"
       },
       "rationale": "Revoking UPGRADER_ROLE from the Timelock breaks all subsequent upgrades until re-grant via the Timelock itself (chicken-and-egg recovery window of getMinDelay()). Mega-review L-4 / UPGRADE-HAZARDS H-8.",
       "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
@@ -81,7 +122,17 @@
         "address": "${TIMELOCK}",
         "event": "CallScheduled(bytes32 id, uint256 index, address target, uint256 value, bytes data, bytes32 predecessor, uint256 delay)"
       },
-      "rationale": "Visibility on every governance proposal entering the queue. Cross-check target/data against expected upgrade calldata; abnormal targets trigger investigation.",
+      "rationale": "Visibility on every governance proposal entering the queue. Cross-check target/data against expected upgrade calldata; abnormal targets trigger investigation. Pre-execute decoders (TIMELOCK-UPDATEDELAY-PRE-EXECUTE above) handle CRITICAL cases inline.",
+      "destination": ["${SLACK_INFO}"]
+    },
+    {
+      "id": "TIMELOCK-CALL-EXECUTED",
+      "severity": "INFO",
+      "trigger": {
+        "address": "${TIMELOCK}",
+        "event": "CallExecuted(bytes32 id, uint256 index, address target, uint256 value, bytes data)"
+      },
+      "rationale": "Closes out the schedule->execute lifecycle. Operator dashboard correlates id with prior CallScheduled to confirm zero-drift. Audit M-03 (closes the schedule/execute reconciliation gap).",
       "destination": ["${SLACK_INFO}"]
     },
     {
@@ -106,13 +157,23 @@
       "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
     },
     {
-      "id": "RESCUE-EVENT",
+      "id": "RESCUE-ERC20-EVENT",
       "severity": "HIGH",
       "trigger": {
         "address": "${PROXY}",
-        "event": "RescuedERC20(address indexed token, address indexed to, uint256 amount) || RescuedETH(address indexed to, uint256 amount)"
+        "event": "RescuedERC20(address indexed token, address indexed to, uint256 amount, address indexed operator)"
       },
-      "rationale": "Rescue invoked. Confirm against operator-side ticket; any rescue without a ticket = potential RESCUER key compromise.",
+      "rationale": "ERC-20 rescue invoked. Confirm against operator-side ticket; any rescue without a ticket = potential RESCUER key compromise. Audit H-03: split from combined rule + corrected to 4-arg signature including 'operator' (matches contracts/ParkToken.sol emission).",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
+    },
+    {
+      "id": "RESCUE-ETH-EVENT",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RescuedETH(address indexed to, uint256 amount, address indexed operator)"
+      },
+      "rationale": "ETH rescue invoked. Confirm against operator-side ticket. Audit H-03: split from combined rule + corrected to 3-arg signature including 'operator' (matches contracts/ParkToken.sol emission).",
       "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
     },
     {
@@ -128,19 +189,20 @@
   ],
   "deliveryProviders": {
     "tenderly": {
-      "alertConfigPath": "https://dashboard.tenderly.co/alerts → New rule → Event filter; paste address + event signature + filter expression",
+      "alertConfigPath": "https://dashboard.tenderly.co/alerts -> New rule -> Event filter; paste address + event signature + filter expression",
       "supportsFilters": true,
-      "notes": "Free tier supports basic event-based alerts; paid for filter expressions on event arg values."
+      "notes": "Free tier supports basic event-based alerts; paid for filter expressions on event arg values and pre-execute calldata decoders."
     },
     "openZeppelinDefender": {
-      "alertConfigPath": "https://defender.openzeppelin.com → Sentinels → New",
+      "alertConfigPath": "https://defender.openzeppelin.com -> Sentinels -> New",
       "supportsFilters": true,
-      "notes": "Conditions DSL covers role hash + address comparisons; $0/month free tier sufficient for these 10 alerts."
+      "notes": "Conditions DSL covers role hash + address comparisons + ABI-decoded function args. Free tier sufficient for this 13-alert set."
     },
     "forta": {
-      "alertConfigPath": "Custom Forta agent — write a JS handler matching the event sigs above",
+      "alertConfigPath": "Custom Forta agent — write a TS/JS handler matching the event sigs above",
       "supportsFilters": true,
-      "notes": "Higher-effort; Forta excels at multi-tx pattern detection rather than single-event alerts."
+      "notes": "Higher-effort; Forta excels at multi-tx pattern detection rather than single-event alerts. Pre-execute Timelock decoders are easiest in Forta."
     }
-  }
+  },
+  "_install_test_required": "Before relying on these rules in production, the operator MUST test-fire each alert in the chosen provider — fork the chain or replay a known-matching tx and confirm the alert delivers. Audit CR-02 explicitly requires this validation step."
 }

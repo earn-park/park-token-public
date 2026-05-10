@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// Generates ops/park-token-integrator-abi.json from the compiled Hardhat
+// artifact. This ABI subset is what wallets / DEXes / indexers / oracles
+// need to integrate PARK Token (full ERC-20 + ERC-2612 + read-only
+// governance views). Distinct from:
+//   - ops/210-base-abi.json — deploy-time ABI (build-bsc-calldata.ts)
+//   - ops/park-token-governance-abi.json — operator monitoring ABI
+//
+// Usage:
+//   npx hardhat compile     # populate artifacts/
+//   node scripts/ops/build-integrator-abi.mjs
+//
+// Audit M-04: keeps generator provenance reproducible (committing the
+// snapshot alone leaves auditors guessing how it was produced).
+
+import { readFileSync, writeFileSync } from "node:fs";
+
+const tokenAbi = JSON.parse(
+  readFileSync("artifacts/contracts/ParkToken.sol/ParkToken.json", "utf-8")
+).abi;
+
+const erc20Functions = [
+  "name", "symbol", "decimals", "totalSupply",
+  "balanceOf", "transfer", "approve", "transferFrom", "allowance"
+];
+const permitFunctions = ["DOMAIN_SEPARATOR", "nonces", "permit", "eip712Domain"];
+const burnableFunctions = ["burn", "burnFrom"];
+const introspection = ["cap", "implVersion", "contractURI", "supportsInterface"];
+const erc20Events = ["Transfer", "Approval"];
+const permitEvents = ["EIP712DomainChanged"];
+const otherEvents = ["ContractURIUpdated", "Upgraded"];
+
+const wantedFns = [...erc20Functions, ...permitFunctions, ...burnableFunctions, ...introspection];
+const wantedEvents = [...erc20Events, ...permitEvents, ...otherEvents];
+
+const sel = tokenAbi.filter(
+  (x) =>
+    (x.type === "function" && wantedFns.includes(x.name)) ||
+    (x.type === "event" && wantedEvents.includes(x.name)) ||
+    x.type === "error"
+);
+
+const out = {
+  generatedAt: new Date().toISOString(),
+  generatedBy: "scripts/ops/build-integrator-abi.mjs",
+  sourceArtifact: "artifacts/contracts/ParkToken.sol/ParkToken.json",
+  description:
+    "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI). CertiK pre-audit L-02.",
+  contract: "ParkToken (ERC-20 + ERC-2612 + capped + UUPS)",
+  notes: {
+    decimals:
+      "6 - non-standard! Most ERC-20s use 18. Integrators reading raw amounts MUST scale by 10^6, not 10^18.",
+    permit:
+      "Standard EIP-2612. nonces() increments per holder per successful permit. Same-chain replay impossible (per-owner nonce); cross-chain replay impossible (DOMAIN_SEPARATOR includes block.chainid). Permit-grief (a third party calling permit on a holder's signed payload to grief allowance) is the standard ERC-2612 footgun; integrators relying on permit should treat it as 'replaces approve' not 'in addition to approve'.",
+    cap:
+      "Returned as a pure constant in v1.0.x. Holder burns reduce totalSupply but DEFAULT_ADMIN_ROLE can re-mint via mint() up to cap. Treat PARK as 'capped with admin reissuance', NOT 'fixed supply'.",
+    upgradeability:
+      "UUPS proxy. Implementation address and ABI may change via Timelock-mediated upgrade. Re-fetch ABI from explorer or this file after every Upgraded(address) event.",
+    deadlineStrategy:
+      "permit deadlines: use short windows (5-15 min). The signature can be replayed within the deadline by anyone (not against the same allowance, but as a separate confirmation tx); pick the shortest window that survives RPC + mempool latency."
+  },
+  abi: sel
+};
+
+writeFileSync("ops/park-token-integrator-abi.json", JSON.stringify(out, null, 2));
+console.log(
+  "written ops/park-token-integrator-abi.json:",
+  out.abi.filter((x) => x.type === "function").length, "functions,",
+  out.abi.filter((x) => x.type === "event").length, "events,",
+  out.abi.filter((x) => x.type === "error").length, "errors"
+);
