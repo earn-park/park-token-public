@@ -145,8 +145,7 @@ function getTimelockAbi(): AbiItem[] {
     const full = loadArtifactAbi(
       "artifacts/contracts/imports/TimelockControllerImport.sol/ParkTimelockController.json"
     );
-    // hasRole added for the Timelock-internal role lattice assertions
-    // (CertiK pre-audit H-02 + mega-review M-1).
+    // hasRole added for the Timelock-internal role lattice assertions.
     _timelockAbi = extractAbiFragments(full, ["getMinDelay", "hasRole"]);
   }
   return _timelockAbi;
@@ -272,7 +271,7 @@ export async function preClaimSafetyCheck(args: PreClaimSafetyArgs): Promise<voi
   }
 }
 
-// ── Safe-shape pre-broadcast gate (CertiK pre-audit H-02) ────────────────────
+// ── Safe-shape pre-broadcast gate ───────────────────────────────────────────
 // Inspects the multisig topology of `BSC_DEFAULT_ADMIN_ADDRESS` (the Safe
 // receiving DEFAULT_ADMIN_ROLE on the proxy). On production deploys the
 // thresholds enforced by PRODUCTION_SAFE_THRESHOLD_MIN /
@@ -305,8 +304,8 @@ export async function assertSafeShape(args: {
   console.log(`Safe shape:  threshold=${threshold} owners=${owners.length} version=${safeVersion}`);
   console.log(`Safe owners: ${owners.join(", ")}`);
 
-  // Audit H-05 — deep Safe validation. Beyond threshold/owners, verify the
-  // proxy bytecode matches a known-good Safe singleton, and check that
+  // Deep Safe validation. Beyond threshold/owners, verify the proxy bytecode
+  // matches a known-good Safe singleton, and check that
   // modules / guard / fallback handler are at canonical defaults (0/null
   // singleton). Operators can override via BSC_ALLOW_SAFE_MODULES=true /
   // BSC_ALLOW_SAFE_GUARD=true / BSC_ALLOW_SAFE_FALLBACK=<addr>.
@@ -664,7 +663,7 @@ export async function runPostDeployAssertions(args: PostDeployAssertionArgs): Pr
   }
   console.log("  PASS: getRoleAdmin(TIMELOCK_ADMIN_ROLE) == self (one-way grant)");
 
-  // ── Timelock-internal role lattice (CertiK pre-audit H-02 + mega-review M-1) ──
+  // ── Timelock-internal role lattice ──────────────────────────────────────────
   // Verify that the deployed Timelock holds the canonical OZ role configuration:
   //   PROPOSER_ROLE  == Safe (defaultAdmin)
   //   CANCELLER_ROLE == Safe (defaultAdmin)
@@ -835,15 +834,10 @@ export interface BscDeployManifest {
   deploymentTimestamp: string;
   governanceUpgradePending: boolean;
   pendingGovernanceActions: ReadonlyArray<string>;
-  // Per-finding:
-  // - audit-2026-05-10 H-01: split single bool `productionReady` into:
-  //     - `deploymentMode`            — operator's stated intent
-  //     - `productionGates`           — every prerequisite gate, individually
-  //     - `timelockDelayMeetsProductionFloor`  — the original delay-only check
-  //     - `productionReady`           — computed AND of all gates (true only
-  //                                     when every gate.passed === true).
-  //   Old consumers reading `productionReady` keep working but its meaning
-  //   is now stricter (was: timelockDelay >= floor; now: all gates pass).
+  // `productionReady` is the AND of every gate in `productionGates`. Splitting
+  // into per-gate booleans + `deploymentMode` lets manifest readers see exactly
+  // which prerequisite blocked production-readiness rather than a single
+  // opaque bool.
   deploymentMode: DeploymentMode;
   timelockDelayMeetsProductionFloor: boolean;
   productionGates: ProductionGates;
@@ -871,7 +865,6 @@ export interface BuildManifestArgs {
   deployer: string;
   deploymentBlock: number;
   predictedAddress: string;
-  // New (audit H-01):
   productionMode: boolean;
   expectedDeployerSet: boolean;
   expectedProxySet: boolean;
@@ -917,7 +910,7 @@ export function buildManifest(args: BuildManifestArgs): BscDeployManifest {
       passed: args.expectedInitialHolderSet,
       detail: args.expectedInitialHolderSet
         ? "BSC_EXPECTED_INITIAL_HOLDER set and matched"
-        : "BSC_EXPECTED_INITIAL_HOLDER not set (audit CR-01)"
+        : "BSC_EXPECTED_INITIAL_HOLDER not set"
     },
     safeShapeValidated: {
       passed: args.safeShapeValidated,
@@ -929,7 +922,7 @@ export function buildManifest(args: BuildManifestArgs): BscDeployManifest {
       passed: args.reproVerified,
       detail: args.reproVerified
         ? "scripts/repro.sh asserted bytecode baseline pre-broadcast"
-        : "Bytecode baseline check NOT run pre-broadcast (audit M-02)"
+        : "Bytecode baseline check NOT run pre-broadcast"
     },
     monitoringInstantiated: {
       passed: args.monitoringInstantiated ?? false,
@@ -1057,7 +1050,7 @@ async function main(): Promise<void> {
   await preClaimSafetyCheck({ rpcUrl, chainKey, predicted });
   console.log("  PASS: predicted address is empty, safe to broadcast");
 
-  // Expected-address preflight (CertiK pre-audit M-03). When the operator
+  // Expected-address preflight. When the operator
   // exports BSC_EXPECTED_DEPLOYER and/or BSC_EXPECTED_PROXY_ADDRESS, the
   // script aborts on mismatch BEFORE broadcasting any tx. Defends against:
   //   - wrong key in BSC_PRIVATE_KEY (deployer signs with unintended EOA)
@@ -1100,7 +1093,7 @@ async function main(): Promise<void> {
     console.log(`  INFO: BSC_EXPECTED_PROXY_ADDRESS unset — bootstrap mode, skipping proxy assert`);
   }
 
-  // Initial supply holder pin (audit CR-01). The full 1B cap is minted to
+  // Initial supply holder pin. The full 1B cap is minted to
   // cfg.initialHolder by initialize(). A poisoned env or operator typo can
   // allocate the supply to an unintended address — recovery requires that
   // holder to burn/return tokens. Pin upfront in production to fail-closed.
@@ -1116,13 +1109,13 @@ async function main(): Promise<void> {
   } else if (cfg.productionMode) {
     throw new Error(
       `BSC_PRODUCTION_MODE=true requires BSC_EXPECTED_INITIAL_HOLDER to be set ` +
-        `(operator must declare the intended supply recipient upfront — see CR-01 in audit-2026-05-10).`
+        `(operator must declare the intended supply recipient upfront).`
     );
   } else {
     console.log(`  INFO: BSC_EXPECTED_INITIAL_HOLDER unset — bootstrap mode, skipping holder assert`);
   }
 
-  // Pre-broadcast Safe-shape gate (CertiK pre-audit H-02). Production mode
+  // Pre-broadcast Safe-shape gate. Production mode
   // requires Safe.threshold >= 3 and Safe.owners.length >= 5; bootstrap
   // mode logs the same numbers as info but does not abort.
   await assertSafeShape({
@@ -1131,7 +1124,7 @@ async function main(): Promise<void> {
     productionMode: cfg.productionMode
   });
 
-  // Pre-broadcast bytecode-baseline gate (audit M-02). Production deploys
+  // Pre-broadcast bytecode-baseline gate. Production deploys
   // refuse to broadcast unless the operator has explicitly attested that
   // scripts/repro.sh ran cleanly against the deploy commit by exporting
   // BSC_REPRO_VERIFIED=true. Bootstrap deploys log INFO without aborting.
@@ -1141,11 +1134,11 @@ async function main(): Promise<void> {
     (process.env["BSC_REPRO_VERIFIED"] ?? "").trim().toLowerCase() === "true";
   if (cfg.productionMode && !reproVerified) {
     throw new Error(
-      `BSC_PRODUCTION_MODE=true requires BSC_REPRO_VERIFIED=true (audit M-02). ` +
+      `BSC_PRODUCTION_MODE=true requires BSC_REPRO_VERIFIED=true. ` +
         `Run \`bash scripts/repro.sh\` first to assert all 6 baseline rows match, ` +
         `then re-launch deploy-bsc.ts in the same shell with BSC_REPRO_VERIFIED=true. ` +
         `This is a fail-closed gate so a deploy can never broadcast a bytecode that ` +
-        `differs from the published audit baseline.`
+        `differs from the published baseline.`
     );
   } else if (cfg.productionMode) {
     console.log(`  PASS: BSC_REPRO_VERIFIED=true — operator attests baseline match`);
@@ -1238,7 +1231,7 @@ async function main(): Promise<void> {
     deployer: account.address,
     deploymentBlock,
     predictedAddress: predicted,
-    // Production-gate inputs (audit H-01) — captured from env state.
+    // Production-gate inputs — captured from env state.
     productionMode: cfg.productionMode,
     expectedDeployerSet: (process.env["BSC_EXPECTED_DEPLOYER"] ?? "").trim() !== "",
     expectedProxySet: (process.env["BSC_EXPECTED_PROXY_ADDRESS"] ?? "").trim() !== "",
@@ -1247,7 +1240,7 @@ async function main(): Promise<void> {
     // fail; reaching this line in production mode means the gate passed.
     // Bootstrap deploys log INFO without enforcing — gate stays false.
     safeShapeValidated: cfg.productionMode,
-    // M-02: operator-attestation env. The actual baseline-gate hook runs
+    // operator-attestation env. The actual baseline-gate hook runs
     // BEFORE broadcast (see assertReproVerified above when productionMode);
     // this flag records that the gate ran cleanly.
     reproVerified: (process.env["BSC_REPRO_VERIFIED"] ?? "").trim().toLowerCase() === "true"

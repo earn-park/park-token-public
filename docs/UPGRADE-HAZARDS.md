@@ -124,7 +124,6 @@ future admin-gated function — the role becomes ungrantable.
 (>= 24 h on-chain bound) gives a safety window. Removing the renounce
 path entirely would also remove the legitimate "freeze admin" use case
 (e.g. credibly committing to no further mints post-distribution).
-Mega-review M-4 raised this as a cosmetic-policy gap.
 
 **Operator action:**
 - Treat `DefaultAdminTransferScheduled` to `0x0` (the renounce signal)
@@ -142,7 +141,7 @@ OZ `TimelockController.updateDelay()` is a self-call (the Timelock
 schedules a call to itself); this contract does not set a min/max. An
 adversarial proposal queue could schedule `updateDelay(0)` and execute
 after the current `getMinDelay()` window, removing all timelock
-protection on subsequent operations. Mega-review M-5.
+protection on subsequent operations.
 
 **Mitigation:**
 - The current Timelock is the OZ contract — modifying it would require a
@@ -166,7 +165,7 @@ to revoke its own `UPGRADER_ROLE` (no self-revoke block on this role).
 If executed, all subsequent UUPS upgrades revert until
 `TIMELOCK_ADMIN_ROLE` re-grants `UPGRADER_ROLE` (which itself requires
 scheduling through the same Timelock — a chicken-and-egg recovery
-window of `getMinDelay()`). Mega-review L-4.
+window of `getMinDelay()`).
 
 **Why we accept this:** the symmetric guard on `TIMELOCK_ADMIN_ROLE`
 self-revoke explicitly allows `UPGRADER_ROLE` revocation (the inverse

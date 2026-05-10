@@ -15,13 +15,22 @@
   <a href="https://earnpark.com">earnpark.com</a> · <a href="LICENSE">BUSL-1.1</a> · <a href="docs/AUDIT-SCOPE.md">Audit scope</a> · <a href="SECURITY.md">Security policy</a>
 </p>
 
+<p align="center">
+  <a href="https://docs.earnpark.com/token-whitepaper/abstract">Whitepaper</a> · <a href="https://docs.earnpark.com/token-whitepaper/park-token">Token doc</a> · <a href="https://www.coingecko.com/en/coins/park">CoinGecko</a>
+</p>
+
 ---
 
 ERC-20 utility token for earnpark.com, deployed on BNB Smart Chain via the
 ZeframLou CREATE3 Factory for deterministic addressing across EVM chains.
 
 PARK is the platform utility token used for staking, rewards, and governance
-participation in the EarnPark ecosystem (https://earnpark.com).
+participation in the EarnPark ecosystem (https://earnpark.com). The token
+whitepaper, tokenomics, and live market data live at:
+
+- **Whitepaper abstract:** https://docs.earnpark.com/token-whitepaper/abstract
+- **Token specification:** https://docs.earnpark.com/token-whitepaper/park-token
+- **Market data:** https://www.coingecko.com/en/coins/park
 The contract is a **capped-supply** ERC-20 (1 B PARK hard cap, 6 decimals) with
 **admin reissuance up to the cap**: holder burns reduce `totalSupply()` and
 create headroom that `DEFAULT_ADMIN_ROLE` can mint back via `mint()`. The cap

@@ -308,7 +308,7 @@ contract ParkToken is
         // Local cap precheck so the canonical `ERC20ExceededCap` error path
         // is the one taken even for inputs that would overflow `_update`'s
         // checked `_totalSupply += amount` arithmetic and surface as
-        // Panic(0x11) instead (mega-review L-2). Subtraction `maxCap - supply`
+        // Panic(0x11) instead. Subtraction `maxCap - supply`
         // is safe: `supply <= cap` is invariant (every increase routes through
         // this gate or `_mint` in initialize). The `unchecked` block on the
         // revert preserves the OZ canonical `(increasedSupply, cap)` error

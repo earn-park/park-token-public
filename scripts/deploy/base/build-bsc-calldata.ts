@@ -109,12 +109,11 @@ async function main(): Promise<void> {
   if (upgraderAddr.toLowerCase() === ZERO) zeroFields.push("upgrader");
   if (rescuerAddr === "") zeroFields.push("rescuer");
 
-  // Audit M-01 — strict semantic validation. The original PLACEHOLDER
-  // sentinel only catches "address is zero / not set" cases. Operators
-  // can still feed non-zero but semantically broken combos that produce
-  // FINAL (signable) calldata which the contract will revert at execute
-  // time. Mirror initialize() pre-checks here so signable artefacts are
-  // truly signable.
+  // Strict semantic validation. The PLACEHOLDER sentinel only catches
+  // "address is zero / not set" cases. Operators can still feed non-zero
+  // but semantically broken combos that produce FINAL (signable) calldata
+  // which the contract will revert at execute time. Mirror initialize()
+  // pre-checks here so signable artefacts are truly signable.
   const semanticIssues: string[] = [];
   // (1) Duplicate-role detection — initialize reverts DuplicateRoleAssignment
   //     when defaultAdmin == upgrader == rescuer, etc. (any two equal).
@@ -230,7 +229,7 @@ async function main(): Promise<void> {
       ? "Final calldata. Verify each field of initConfigHumanReadable matches the agreed governance parameters before signing."
       : isPlaceholder
         ? `Placeholder fields: [${zeroFields.join(", ")}]. The encoded calldata is guaranteed to revert on-chain (Zero* and DuplicateRoleAssignment guards in initialize). Set the corresponding env var(s) and re-run to produce signable calldata.`
-        : `Semantic invariant violation: [${semanticIssues.join("; ")}]. Calldata will revert on-chain at initialize() time. Audit M-01 — strict validator.`,
+        : `Semantic invariant violation: [${semanticIssues.join("; ")}]. Calldata will revert on-chain at initialize() time.`,
     zeroFields,
     semanticIssues,
     timelockDelay,

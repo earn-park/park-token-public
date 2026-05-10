@@ -149,9 +149,9 @@ async function main(): Promise<void> {
   // REINIT_SIGNATURE is the legacy fallback used when REINIT_CALLDATA is
   // unset; it ONLY supports zero-arg signatures (e.g. "reinitialize()").
   // The script aborts if REINIT_SIGNATURE contains arguments and
-  // REINIT_CALLDATA is missing — preventing the H-4 mega-review bug where
-  // the script would silently truncate parametrized signatures to a
-  // 4-byte selector and queue malformed Timelock calldata.
+  // REINIT_CALLDATA is missing — passing only the 4-byte selector for a
+  // parametrized reinitializer would silently truncate the args and queue
+  // malformed Timelock calldata.
   const reinitCalldataRaw = process.env["REINIT_CALLDATA"];
   const reinitSignatureRaw = process.env["REINIT_SIGNATURE"]; // optional fallback
   const saltLabel = requireEnv("UPGRADE_SALT_LABEL");
@@ -190,7 +190,7 @@ async function main(): Promise<void> {
       throw new Error(
         `REINIT_SIGNATURE "${reinitSignatureRaw}" has arguments — set REINIT_CALLDATA ` +
           `to the full ABI-encoded calldata instead (build via cast calldata '${reinitSignatureRaw}' <args...>). ` +
-          `Selector-only invocation of a parametrized reinitializer would queue malformed Timelock calldata (mega-review H-4).`
+          `Selector-only invocation of a parametrized reinitializer would queue malformed Timelock calldata.`
       );
     }
     reinitCalldata = keccak256(stringToBytes(reinitSignatureRaw)).slice(0, 10) as Hex;
@@ -201,12 +201,11 @@ async function main(): Promise<void> {
     console.log(`Reinit calldata:  0x (no reinitializer call — equivalent to upgradeTo)`);
   }
 
-  // Mega-review M-2 — upgrade-candidate preflight. Reject the schedule if
-  // the new implementation address is not a deployed contract, lacks the
-  // ERC-1822 `proxiableUUID()` method, returns the wrong UUID, or — when
-  // the operator passes `EXPECTED_IMPL_VERSION` — exposes a different
-  // `implVersion()`. Catches the «schedule then revert on execute» class
-  // of footguns the original mega-review flagged.
+  // Upgrade-candidate preflight. Reject the schedule if the new implementation
+  // address is not a deployed contract, lacks the ERC-1822 `proxiableUUID()`
+  // method, returns the wrong UUID, or — when the operator passes
+  // `EXPECTED_IMPL_VERSION` — exposes a different `implVersion()`. Catches
+  // the «schedule then revert on execute» class of footguns.
   const ERC1967_IMPL_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
   const newImplCode = await publicClient.getCode({ address: newImplAddr });
   if (!newImplCode || newImplCode === "0x") {
@@ -267,7 +266,7 @@ async function main(): Promise<void> {
       });
   console.log(`Delay:            ${delay}s`);
 
-  // Production-floor enforcement (audit H-04). When PRODUCTION_MODE=true,
+  // Production-floor enforcement. When PRODUCTION_MODE=true,
   // refuse to schedule unless the resolved delay meets the documented
   // floor (>=21600s). Bootstrap rehearsals proceed with logged warning.
   const PRODUCTION_TIMELOCK_FLOOR = 21600n;
@@ -297,7 +296,7 @@ async function main(): Promise<void> {
     args: [proxyAddr, 0n, upgradeCalldata, predecessor, salt, delay]
   });
 
-  // Self-signer / multisig dual-mode (mega-review H-5). See safe-exec.ts
+  // Self-signer / multisig dual-mode. See safe-exec.ts
   // for the full design rationale. Bootstrap (threshold=1) submits
   // directly; production (threshold>=2) emits SafeTx + SafeTxHash for
   // operator upload to Safe Wallet UI and exits without on-chain action.
@@ -399,7 +398,7 @@ async function main(): Promise<void> {
   console.log(`\nScheduled. Block ${receipt.blockNumber}, gas ${receipt.gasUsed}.`);
   console.log(`Operation ready to execute at UNIX ${readyAt} (+${delay}s from now).`);
 
-  // Persist schedule artefact for execute-upgrade.ts (audit H-04).
+  // Persist schedule artefact for execute-upgrade.ts.
   const { writeFileSync, mkdirSync, existsSync } = await import("node:fs");
   const { join } = await import("node:path");
   const opsDir = join(process.cwd(), "ops");

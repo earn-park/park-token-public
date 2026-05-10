@@ -16,14 +16,15 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
-        with:
-          version: stable
-      # Pin to the exact Foundry commit documented in docs/AUDIT-SCOPE.md
-      # and asserted by docs/BYTECODE-BASELINE.md. Any drift here changes
-      # bytecode reproducibility — bump the SHA in source code AND in this
-      # workflow in the same PR (per mega-review MR-02 fix).
-      - run: foundryup --version "b0a9dd9c"
+      # foundryup installs `forge` / `cast` / `anvil` for any released SHA.
+      # Pinned to the exact commit asserted by docs/BYTECODE-BASELINE.md.
+      - name: Install foundryup + pin Foundry to baseline SHA
+        run: |
+          set -euo pipefail
+          curl -L https://foundry.paradigm.xyz | bash
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.foundry/bin:$PATH"
+          foundryup --version "b0a9dd9c"
       - name: Assert Foundry SHA matches baseline
         run: |
           set -euo pipefail
@@ -45,6 +46,16 @@ jobs:
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '22.20.0'
+      # hardhat-foundry plugin invokes `forge` during `npx hardhat compile`
+      # to read foundry.toml remappings. Install Foundry on the same
+      # baseline SHA used by the forge job.
+      - name: Install foundryup + pin Foundry to baseline SHA
+        run: |
+          set -euo pipefail
+          curl -L https://foundry.paradigm.xyz | bash
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.foundry/bin:$PATH"
+          foundryup --version "b0a9dd9c"
       - run: npm ci --ignore-scripts
       - run: npm run deps:check-exact
       - run: npm run lint
@@ -52,7 +63,7 @@ jobs:
       # Compile Hardhat artifacts before hh:test runs. The TS test path
       # (build-bsc-calldata.ts + deploy-bsc.ts) loads compiled-artifact
       # JSON files from artifacts/, which is .gitignore'd. Without this
-      # step, hh:test partially fails on a clean clone (audit finding H-02).
+      # step, hh:test partially fails on a clean clone.
       - run: npx hardhat compile
       - run: npm run hh:test
 
@@ -65,13 +76,16 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
-        with:
-          version: stable
-      - run: foundryup --version "b0a9dd9c"
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '22.20.0'
+      - name: Install foundryup + pin Foundry to baseline SHA
+        run: |
+          set -euo pipefail
+          curl -L https://foundry.paradigm.xyz | bash
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.foundry/bin:$PATH"
+          foundryup --version "b0a9dd9c"
       # scripts/repro.sh:
       #   1. asserts forge --version SHA matches b0a9dd9c
       #   2. cleans out/ + cache_hardhat/ + artifacts/
@@ -79,6 +93,6 @@ jobs:
       #   4. computes deployedBytecode keccak256 for ParkToken / ParkERC1967Proxy /
       #      ParkTimelockController in BOTH artifact families
       #   5. asserts each of the 6 hashes matches docs/BYTECODE-BASELINE.md
-      #   exits non-zero on any drift. CertiK pre-audit M-02 fix.
+      #   exits non-zero on any drift.
       - name: Run scripts/repro.sh (asserts 6 baseline rows)
         run: bash scripts/repro.sh

@@ -142,7 +142,7 @@ async function main(): Promise<void> {
     publicClient.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "getOwners" }),
     publicClient.readContract({ address: safeAddress, abi: SAFE_ABI, functionName: "nonce" })
   ]);
-  // Self-signer / multisig dual-mode (mega-review H-5).
+  // Self-signer / multisig dual-mode.
   //
   // Threshold == 1 (bootstrap): script signs and submits execTransaction
   //   directly in the same process. Used for test infrastructure deploys.
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
   } as const;
 
   if (!isBootstrap) {
-    // Multisig calldata-emit mode (mega-review H-5). Prints the SafeTx
+    // Multisig calldata-emit mode. Prints the SafeTx
     // payload + the EIP-712 SafeTxHash so operators can upload via the
     // Safe Wallet UI / Safe Transaction Service. Does NOT submit.
     const { hashTypedData } = await import("viem");

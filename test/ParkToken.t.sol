@@ -590,7 +590,7 @@ contract ParkTokenTest is Test {
         token.permit(owner, recipient, 100, deadline, vFlipped, r, sFlipped);
     }
 
-    /// @notice Cross-chain permit replay regression (mega-review L-1).
+    /// @notice Cross-chain permit replay regression.
     ///         Confirms that DOMAIN_SEPARATOR rotates with `block.chainid`,
     ///         so a permit signature valid on chainid 56 (BSC) cannot be
     ///         replayed on chainid 42161 (Arbitrum) — even when both chains

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-10T00:26:46.567Z",
+  "generatedAt": "2026-05-10T23:15:51.022Z",
   "generatedBy": "scripts/ops/build-governance-abi.mjs",
-  "description": "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (which is the deploy-time ABI subset). Mega-review M-7.",
+  "description": "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (deploy-time slim ABI).",
   "contracts": {
     "ParkToken": {
       "address": "<proxy address depends on chain>",

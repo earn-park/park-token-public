@@ -18,7 +18,7 @@ We commit to:
 This repository is the audit-handoff snapshot for PARK Token v1.0.0.
 The token's first production deployment will happen post-audit; any
 on-chain instances at the time of audit (BSC mainnet, Arbitrum One)
-are pre-audit test rehearsals and are not load-bearing for the audit
+are test rehearsals and are not load-bearing for the audit
 scope. Auditor's reasoning should attach to the source in this repo,
 not to any specific deployed proxy.
 
