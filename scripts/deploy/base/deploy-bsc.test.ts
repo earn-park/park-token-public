@@ -220,6 +220,7 @@ describe("runPostDeployAssertions", () => {
         defaultAdmin: "0xEEEE000000000000000000000000000000000001",
         rescuer: "0xFFFF000000000000000000000000000000000001",
         initialHolder: "0xEEEE000000000000000000000000000000000001",
+        deployer: "0x1111111111111111111111111111111111111111",
         expectedTimelockDelay: 900,
         expectedContractURI: "https://earnpark.com/token-metadata.json"
       }),
@@ -228,8 +229,11 @@ describe("runPostDeployAssertions", () => {
   });
 
   it("accepts case-mismatched but byte-equal addresses and passes all role checks", async () => {
+    // Use REAL UPGRADER_ROLE hash to avoid collision with PROPOSER_ROLE
+    // (PROPOSER_ROLE = 0xb09aa5ae... which the prior fixture incorrectly
+    // reused as a placeholder UPGRADER hash).
     const upgraderRole =
-      "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1" as Hex;
+      "0x189ab7a9244df0848122154315af71fe140f3db0fe014031783b0946b8c9d2e3" as Hex;
     const timelockAdminRole =
       "0x5f58e3a2316349923ce3780f8d587db2d72378aed66a8261c916544fa6846ca5" as Hex;
     const rescuerRole =
@@ -237,6 +241,15 @@ describe("runPostDeployAssertions", () => {
 
     const defaultAdmin = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" as `0x${string}`;
     const timelockAddress = "0xdddddddddddddddddddddddddddddddddddddddd" as `0x${string}`;
+    const deployer = "0x1111111111111111111111111111111111111111" as `0x${string}`;
+    // OZ TimelockController role hashes (constants — match deploy-bsc.ts).
+    const PROPOSER_ROLE =
+      "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1" as Hex;
+    const EXECUTOR_ROLE =
+      "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63" as Hex;
+    const CANCELLER_ROLE =
+      "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783" as Hex;
+    const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as `0x${string}`;
     const rescuer = "0xffffffffffffffffffffffffffffffffffffffff" as `0x${string}`;
     const defaultAdminRole = `0x${"00".repeat(32)}` as Hex;
 
@@ -254,10 +267,18 @@ describe("runPostDeployAssertions", () => {
         if (params.functionName === "hasRole") {
           const [role, account] = params.args as [string, string];
           const a = account.toLowerCase();
+          // ParkToken roles
           if (role === defaultAdminRole && a === defaultAdmin) return true;
           if (role === upgraderRole && a === timelockAddress) return true;
           if (role === timelockAdminRole && a === timelockAddress) return true;
           if (role === rescuerRole && a === rescuer) return true;
+          // Timelock-internal roles (CertiK pre-audit H-02 + mega-review M-1)
+          if (role === PROPOSER_ROLE && a === defaultAdmin) return true;
+          if (role === CANCELLER_ROLE && a === defaultAdmin) return true;
+          if (role === EXECUTOR_ROLE && a === ZERO_ADDR) return true;
+          if (role === defaultAdminRole && a === timelockAddress) return true;
+          // Negative: deployer must NOT have DEFAULT_ADMIN_ROLE on Timelock
+          if (role === defaultAdminRole && a === deployer) return false;
           return false;
         }
         if (params.functionName === "getRoleAdmin") {
@@ -290,6 +311,7 @@ describe("runPostDeployAssertions", () => {
       defaultAdmin,
       rescuer,
       initialHolder: defaultAdmin,
+      deployer,
       expectedTimelockDelay: 900,
       expectedContractURI: "https://earnpark.com/token-metadata.json"
     });
