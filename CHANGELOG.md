@@ -49,24 +49,27 @@
   - was: `0xa51d1ca5caeb55dec90723bcad06080462be89e508be79978ec053991bf60842`
   - `ParkERC1967Proxy` and `ParkTimelockController` hashes are unchanged
     (neither references `implVersion`).
-- The two test deployments at proxy `0xA4a83c12bFed8Ba35da4a6203f6F5E783a887BCC`
-  on BSC + Arbitrum continue to expose `implVersion() == "base-1.0.0"`
-  on-chain. Their source verification on BscScan / Arbiscan reflects the
-  pre-rename source forever; they are TEST instances and will be
-  superseded by a fresh production deploy from this updated source.
+- Any pre-audit on-chain instances continue to expose `implVersion() ==
+  "base-1.0.0"` indefinitely; they are not load-bearing and will be
+  superseded by a fresh production deploy from this updated source after
+  audit completion.
 
 ## v1.0.0 — 2026-05-09 (audit-handoff snapshot)
 
 Initial public release of the PARK Token smart-contract source for
 external audit.
 
-### Live deployments
-- Proxy address (BSC + Arbitrum, same address via ZeframLou CREATE3):
-  `0xA4a83c12bFed8Ba35da4a6203f6F5E783a887BCC`
-- BSC chainId 56, Arbitrum chainId 42161
-- BOOTSTRAP-config: Safe 1/1, Timelock minDelay 900 s
-- Production uplift to 3/5 + 21600 s minDelay is the HARD GATE before
-  any public TGE / CEX listing / distribution.
+### Deployment posture
+- Source-only release; no production deployment.
+- Pre-audit rehearsals on BNB Smart Chain (chainId 56) and Arbitrum One
+  (chainId 42161) used a BOOTSTRAP-config (Safe 1/1, Timelock minDelay
+  900 s) — they exist for operator validation only and have no
+  audit-scope significance. Specific addresses are intentionally not
+  recorded here so that audit reasoning attaches to the source, not to
+  any throwaway proxy.
+- First production deployment will follow audit completion + production
+  uplift (multi-sig Safe ≥ 3/5, Timelock minDelay 21600 s) per the
+  HARD GATE policy.
 
 ### Surface
 - ERC-20 (decimals 6, fixed cap 1B PARK) with ERC-2612 permit.
