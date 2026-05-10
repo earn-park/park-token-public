@@ -1,4 +1,21 @@
-# PARK Token (PARK)
+<p align="center">
+  <img src="assets/park-icon.png" alt="PARK Token" width="128" />
+</p>
+
+<h1 align="center">PARK Token</h1>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/earnpark-wordmark-on-dark.png" />
+    <img alt="EarnPark" src="assets/earnpark-wordmark-on-light.png" width="240" />
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://earnpark.com">earnpark.com</a> · <a href="LICENSE">BUSL-1.1</a> · <a href="docs/AUDIT-SCOPE.md">Audit scope</a> · <a href="SECURITY.md">Security policy</a>
+</p>
+
+---
 
 ERC-20 utility token for earnpark.com, deployed on BNB Smart Chain via the
 ZeframLou CREATE3 Factory for deterministic addressing across EVM chains.
