@@ -16,15 +16,12 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      # foundryup installs `forge` / `cast` / `anvil` for any released SHA.
-      # Pinned to the exact commit asserted by docs/BYTECODE-BASELINE.md.
-      - name: Install foundryup + pin Foundry to baseline SHA
-        run: |
-          set -euo pipefail
-          curl -L https://foundry.paradigm.xyz | bash
-          ls -la "$HOME/.foundry/bin/"
-          "$HOME/.foundry/bin/foundryup" --version "b0a9dd9c"
-          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+      # Pin to the exact Foundry release whose commit (b0a9dd9c) is asserted
+      # by docs/BYTECODE-BASELINE.md. Bumping the version requires updating
+      # both the tag here AND the SHA assertion below in the same PR.
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: v1.5.1
       - name: Assert Foundry SHA matches baseline
         run: |
           set -euo pipefail
@@ -49,13 +46,9 @@ jobs:
       # hardhat-foundry plugin invokes `forge` during `npx hardhat compile`
       # to read foundry.toml remappings. Install Foundry on the same
       # baseline SHA used by the forge job.
-      - name: Install foundryup + pin Foundry to baseline SHA
-        run: |
-          set -euo pipefail
-          curl -L https://foundry.paradigm.xyz | bash
-          ls -la "$HOME/.foundry/bin/"
-          "$HOME/.foundry/bin/foundryup" --version "b0a9dd9c"
-          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: v1.5.1
       - run: npm ci --ignore-scripts
       - run: npm run deps:check-exact
       - run: npm run lint
@@ -79,13 +72,9 @@ jobs:
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '22.20.0'
-      - name: Install foundryup + pin Foundry to baseline SHA
-        run: |
-          set -euo pipefail
-          curl -L https://foundry.paradigm.xyz | bash
-          ls -la "$HOME/.foundry/bin/"
-          "$HOME/.foundry/bin/foundryup" --version "b0a9dd9c"
-          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+      - uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.4.0
+        with:
+          version: v1.5.1
       # scripts/repro.sh:
       #   1. asserts forge --version SHA matches b0a9dd9c
       #   2. cleans out/ + cache_hardhat/ + artifacts/
