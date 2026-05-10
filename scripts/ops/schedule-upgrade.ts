@@ -267,6 +267,22 @@ async function main(): Promise<void> {
       });
   console.log(`Delay:            ${delay}s`);
 
+  // Production-floor enforcement (audit H-04). When PRODUCTION_MODE=true,
+  // refuse to schedule unless the resolved delay meets the documented
+  // floor (>=21600s). Bootstrap rehearsals proceed with logged warning.
+  const PRODUCTION_TIMELOCK_FLOOR = 21600n;
+  const productionMode = (process.env["PRODUCTION_MODE"] ?? "false").trim().toLowerCase() === "true";
+  if (productionMode && delay < PRODUCTION_TIMELOCK_FLOOR) {
+    throw new Error(
+      `PRODUCTION_MODE=true requires Timelock minDelay >= ${PRODUCTION_TIMELOCK_FLOOR}s; ` +
+        `got ${delay}s. Either uplift the Timelock first (runbook 220) or remove PRODUCTION_MODE for rehearsal.`
+    );
+  } else if (productionMode) {
+    console.log(`  PASS: production-floor delay >= ${PRODUCTION_TIMELOCK_FLOOR}s`);
+  } else if (delay < PRODUCTION_TIMELOCK_FLOOR) {
+    console.log(`  WARN: bootstrap delay ${delay}s; production requires >= ${PRODUCTION_TIMELOCK_FLOOR}s`);
+  }
+
   const opId = await publicClient.readContract({
     address: timelockAddr,
     abi: TIMELOCK_ABI,
@@ -382,7 +398,41 @@ async function main(): Promise<void> {
   const readyAt = Math.floor(Date.now() / 1000) + Number(delay);
   console.log(`\nScheduled. Block ${receipt.blockNumber}, gas ${receipt.gasUsed}.`);
   console.log(`Operation ready to execute at UNIX ${readyAt} (+${delay}s from now).`);
-  console.log(`\nTo execute (from ANY EOA, executor role is wildcard 0x0):`);
+
+  // Persist schedule artefact for execute-upgrade.ts (audit H-04).
+  const { writeFileSync, mkdirSync, existsSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const opsDir = join(process.cwd(), "ops");
+  if (!existsSync(opsDir)) mkdirSync(opsDir, { recursive: true });
+  const shortOpId = (opId as string).slice(2, 10);
+  const targetChainName = process.env["TARGET_CHAIN"] ?? "bsc";
+  const schedulePath = join(opsDir, `upgrade-schedule-${targetChainName}-${shortOpId}.json`);
+  writeFileSync(schedulePath, `${JSON.stringify({
+    chain: targetChainName,
+    chainId,
+    proxyAddress: proxyAddr,
+    timelockAddress: timelockAddr,
+    newImplAddress: newImplAddr,
+    upgradeCalldata,
+    reinitCalldata,
+    predecessor,
+    saltLabel,
+    salt,
+    operationId: opId,
+    delaySeconds: Number(delay),
+    scheduledAtUnix: Math.floor(Date.now() / 1000),
+    readyAtUnix: readyAt,
+    scheduleTxHash: txHash,
+    scheduleBlock: Number(receipt.blockNumber),
+    productionMode
+  }, null, 2)}\n`);
+  console.log(`\nSchedule artefact: ${schedulePath}`);
+  console.log(`To execute, after delay elapses:`);
+  console.log(
+    `  TARGET_CHAIN=${targetChainName} SCHEDULE_MANIFEST_PATH=${schedulePath} \\\n` +
+      `    node --import tsx scripts/ops/execute-upgrade.ts`
+  );
+  console.log(`\n(Legacy raw cast path remains available:)`);
   console.log(
     `  cast send ${timelockAddr} 'execute(address,uint256,bytes,bytes32,bytes32)' \\\n` +
       `    ${proxyAddr} 0 ${upgradeCalldata} ${predecessor} ${salt} \\\n` +

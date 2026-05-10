@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-05-10T18:13:21.461Z",
-  "generatedBy": "scripts/build-integrator-abi.mjs (operator-side; static snapshot)",
+  "generatedBy": "scripts/ops/build-integrator-abi.mjs",
   "description": "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI). CertiK pre-audit L-02.",
   "contract": "ParkToken (ERC-20 + ERC-2612 + capped + UUPS)",
   "notes": {

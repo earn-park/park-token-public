@@ -320,6 +320,7 @@ describe("runPostDeployAssertions", () => {
 });
 
 describe("buildManifest", () => {
+  // Default fixture is "all production gates passed" (audit H-01).
   const baseArgs = {
     chainKey: "bsc" as const,
     chainId: 56,
@@ -334,21 +335,52 @@ describe("buildManifest", () => {
     initialContractURI: "https://earnpark.com/token-metadata.json",
     deployer: "0x1111111111111111111111111111111111111111",
     deploymentBlock: 12345678,
-    predictedAddress: "0xAAAA000000000000000000000000000000000001"
+    predictedAddress: "0xAAAA000000000000000000000000000000000001",
+    productionMode: true,
+    expectedDeployerSet: true,
+    expectedProxySet: true,
+    expectedInitialHolderSet: true,
+    safeShapeValidated: true,
+    reproVerified: true,
+    monitoringInstantiated: true,
+    explorerProxyRegistered: true
   };
 
-  it("produces production-ready manifest when timelockDelay >= 21600", () => {
+  it("produces production-ready manifest when ALL gates pass", () => {
     const m = buildManifest({ ...baseArgs, timelockDelay: 21600 });
     assert.equal(m.versionLabel, "v1.0.0");
+    assert.equal(m.deploymentMode, "production");
+    assert.equal(m.timelockDelayMeetsProductionFloor, true);
     assert.equal(m.productionReady, true);
     assert.equal(m.governanceUpgradePending, false);
     assert.deepEqual(m.pendingGovernanceActions, []);
   });
 
-  it("produces non-production-ready manifest when timelockDelay < 21600", () => {
+  it("productionReady=false when timelockDelay < 21600 (delay-floor gate fails)", () => {
     const m = buildManifest({ ...baseArgs, timelockDelay: 900 });
+    assert.equal(m.timelockDelayMeetsProductionFloor, false);
     assert.equal(m.productionReady, false);
+    assert.equal(m.productionGates.timelockDelayMeetsFloor.passed, false);
     assert.equal(m.governanceUpgradePending, true);
+  });
+
+  it("productionReady=false when productionMode=false (deploymentMode=staging)", () => {
+    const m = buildManifest({ ...baseArgs, productionMode: false });
+    assert.equal(m.deploymentMode, "staging");
+    assert.equal(m.productionReady, false);
+    assert.equal(m.productionGates.productionModeFlag.passed, false);
+  });
+
+  it("productionReady=false when initial-holder pin missing (CR-01 gate)", () => {
+    const m = buildManifest({ ...baseArgs, expectedInitialHolderSet: false });
+    assert.equal(m.productionReady, false);
+    assert.equal(m.productionGates.expectedInitialHolderPinned.passed, false);
+  });
+
+  it("productionReady=false when monitoring not yet attested", () => {
+    const m = buildManifest({ ...baseArgs, monitoringInstantiated: false });
+    assert.equal(m.productionReady, false);
+    assert.equal(m.productionGates.monitoringInstantiated.passed, false);
   });
 
   it("includes CREATE3 fields (salt, factoryAddress, factoryExtcodehash, factoryVersion, predictedAddress)", () => {
