@@ -1,0 +1,146 @@
+{
+  "_doc": "Monitoring alert template for PARK Token deployments. Operators MUST instantiate this per chain (BSC, Arbitrum, future) before any production deploy. Hook into Tenderly Alerts, Forta agents, OpenZeppelin Defender Sentinels, or in-house infra. CertiK pre-audit H-03 + M-06.",
+  "_template_version": "1.0",
+  "_generated": "2026-05-10",
+  "_substitution_keys": {
+    "${CHAIN}": "bsc | arbitrum | ...",
+    "${PROXY}": "PARK Token proxy address",
+    "${TIMELOCK}": "Timelock controller address",
+    "${SAFE}": "Safe (DEFAULT_ADMIN) address",
+    "${RESCUER}": "Rescuer EOA / Safe address",
+    "${PAGER_EMAIL}": "operator email or PagerDuty webhook URL",
+    "${SLACK_HIGH}": "Slack webhook for HIGH alerts",
+    "${SLACK_INFO}": "Slack webhook for INFO alerts"
+  },
+  "alerts": [
+    {
+      "id": "TIMELOCK-MIN-DELAY-CHANGE",
+      "severity": "CRITICAL",
+      "trigger": {
+        "address": "${TIMELOCK}",
+        "event": "MinDelayChange(uint256 oldDuration, uint256 newDuration)",
+        "filter": "newDuration < 21600"
+      },
+      "rationale": "Reducing minDelay below 6h shortens the operator's reaction window before any subsequent upgrade. Reject any value below the documented production policy.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-7-timelock-updatedelay-is-unbounded",
+      "responseSLA": "15min ack / 60min decision"
+    },
+    {
+      "id": "ROLE-GRANT-TIMELOCK-ADMIN",
+      "severity": "CRITICAL",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RoleGranted(bytes32 role, address account, address sender)",
+        "filter": "role == TIMELOCK_ADMIN_ROLE && account != ${TIMELOCK}"
+      },
+      "rationale": "TIMELOCK_ADMIN_ROLE granted to anything other than the Timelock contract itself breaks the role-isolation invariant and lets the new holder grant UPGRADER_ROLE arbitrarily. Mega-review M-3.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-8-upgrader_role-self-revoke-is-recoverable-but-liveness-impacting",
+      "responseSLA": "15min ack / 30min decision"
+    },
+    {
+      "id": "ROLE-REVOKE-UPGRADER",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RoleRevoked(bytes32 role, address account, address sender)",
+        "filter": "role == UPGRADER_ROLE && account == ${TIMELOCK}"
+      },
+      "rationale": "Revoking UPGRADER_ROLE from the Timelock breaks all subsequent upgrades until re-grant via the Timelock itself (chicken-and-egg recovery window of getMinDelay()). Mega-review L-4 / UPGRADE-HAZARDS H-8.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-8-upgrader_role-self-revoke-is-recoverable-but-liveness-impacting"
+    },
+    {
+      "id": "ROLE-RENOUNCE-DEFAULT-ADMIN",
+      "severity": "CRITICAL",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "DefaultAdminTransferScheduled(address newAdmin, uint48 acceptSchedule)",
+        "filter": "newAdmin == 0x0000000000000000000000000000000000000000"
+      },
+      "rationale": "Scheduling a transfer to address(0) is the OZ DefaultAdminRules signal for renouncing DEFAULT_ADMIN_ROLE permanently. After acceptSchedule elapses + acceptDefaultAdminTransfer call, mint/setContractURI/RESCUER administration become impossible forever. CertiK H-06 / mega-review M-4.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-6-default_admin_role-renounce-path-is-open-by-design"
+    },
+    {
+      "id": "PROXY-UPGRADED",
+      "severity": "INFO",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "Upgraded(address indexed implementation)"
+      },
+      "rationale": "Implementation slot changed. Operator must verify the new impl matches the published audit artefact + run scripts/repro.sh against the new commit. Trigger explorer mark-as-proxy refresh.",
+      "destination": ["${SLACK_INFO}"],
+      "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-5-explorer-mark-as-proxy-must-be-re-run-on-every-upgrade"
+    },
+    {
+      "id": "TIMELOCK-CALL-SCHEDULED",
+      "severity": "INFO",
+      "trigger": {
+        "address": "${TIMELOCK}",
+        "event": "CallScheduled(bytes32 id, uint256 index, address target, uint256 value, bytes data, bytes32 predecessor, uint256 delay)"
+      },
+      "rationale": "Visibility on every governance proposal entering the queue. Cross-check target/data against expected upgrade calldata; abnormal targets trigger investigation.",
+      "destination": ["${SLACK_INFO}"]
+    },
+    {
+      "id": "TIMELOCK-CALL-CANCELLED",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${TIMELOCK}",
+        "event": "Cancelled(bytes32 id)"
+      },
+      "rationale": "A scheduled operation was cancelled before execute(). Could be benign (operator change of mind) or hostile (cancellation of a legitimate upgrade by a compromised CANCELLER). Investigate per case.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
+    },
+    {
+      "id": "MINT-EVENT",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "Transfer(address indexed from, address indexed to, uint256 value)",
+        "filter": "from == 0x0000000000000000000000000000000000000000 && value > 0"
+      },
+      "rationale": "Token mint after initial deployment. Should only happen after a holder burn + admin re-mint up to cap. Routine mints during distribution are expected; unexpected mints indicate compromised DEFAULT_ADMIN.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
+    },
+    {
+      "id": "RESCUE-EVENT",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RescuedERC20(address indexed token, address indexed to, uint256 amount) || RescuedETH(address indexed to, uint256 amount)"
+      },
+      "rationale": "Rescue invoked. Confirm against operator-side ticket; any rescue without a ticket = potential RESCUER key compromise.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
+    },
+    {
+      "id": "CONTRACT-URI-CHANGE",
+      "severity": "INFO",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "ContractURIUpdated(string newURI)"
+      },
+      "rationale": "Metadata URI swap (token-metadata.json content). Cross-check the new URI resolves to a sane document.",
+      "destination": ["${SLACK_INFO}"]
+    }
+  ],
+  "deliveryProviders": {
+    "tenderly": {
+      "alertConfigPath": "https://dashboard.tenderly.co/alerts → New rule → Event filter; paste address + event signature + filter expression",
+      "supportsFilters": true,
+      "notes": "Free tier supports basic event-based alerts; paid for filter expressions on event arg values."
+    },
+    "openZeppelinDefender": {
+      "alertConfigPath": "https://defender.openzeppelin.com → Sentinels → New",
+      "supportsFilters": true,
+      "notes": "Conditions DSL covers role hash + address comparisons; $0/month free tier sufficient for these 10 alerts."
+    },
+    "forta": {
+      "alertConfigPath": "Custom Forta agent — write a JS handler matching the event sigs above",
+      "supportsFilters": true,
+      "notes": "Higher-effort; Forta excels at multi-tx pattern detection rather than single-event alerts."
+    }
+  }
+}

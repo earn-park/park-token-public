@@ -29,13 +29,15 @@ git clone <repository-url>
 cd park-token-public
 # lib/ is fully vendored — no submodule init needed
 npm install --ignore-scripts
-forge build --offline        # Foundry artifacts (out/) — authoritative for audit
-npx hardhat compile          # Hardhat artifacts (artifacts/) — required for TS tests
-forge test --offline -vvv    # 85 Foundry tests (77 unit + 8 invariant)
+forge build --offline        # Foundry artifacts (out/) — audit anchor
+npx hardhat compile          # Hardhat artifacts (artifacts/) — deploy + TS-test path
+forge test --offline -vvv    # 86 Foundry tests (78 unit + 8 invariant)
 npm run hh:test              # 34 TS unit tests
 ```
 
-Expected output: 85 Foundry tests pass (77 unit + 8 invariant) plus 34 TS unit tests.
+Expected output: 86 Foundry tests pass (78 unit + 8 invariant) plus 34 TS unit tests.
+Both Foundry and Hardhat artifact families are baselined in
+`docs/BYTECODE-BASELINE.md`; `scripts/repro.sh` asserts each row.
 
 ## Deploy (BSC mainnet)
 

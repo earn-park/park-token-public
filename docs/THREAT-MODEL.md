@@ -1,8 +1,16 @@
 # Threat model
 
-This document enumerates 9 operational threats (T1–T9) relevant to the CREATE3
-deploy mechanic and governance lifecycle. Contract-level invariants and bytecode-
-level concerns are covered separately in `docs/TOKEN-SPEC.md` §Invariants.
+This document enumerates 14 threats (T1–T14) relevant to PARK Token:
+- **T1–T9** — CREATE3 deploy mechanic and operational governance lifecycle.
+- **T10** — Re-entrancy via `rescueETH`.
+- **T11** — UUPS upgrade-bricking via role drop.
+- **T12** — ERC-7201 namespace storage collision (future implementations).
+- **T13** — EIP-7702 delegated-EOA bypass on the `UpgraderNotContract` check.
+- **T14** — ERC-2612 permit signature replay on the same chain.
+
+Contract-level invariants and bytecode-level concerns are covered separately
+in `docs/TOKEN-SPEC.md` §Invariants. Future-upgrade contractual obligations
+live in `docs/UPGRADE-HAZARDS.md` (H-1..H-8 hazard set).
 
 ---
 

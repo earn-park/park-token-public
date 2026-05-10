@@ -873,6 +873,49 @@ async function main(): Promise<void> {
   await preClaimSafetyCheck({ rpcUrl, chainKey, predicted });
   console.log("  PASS: predicted address is empty, safe to broadcast");
 
+  // Expected-address preflight (CertiK pre-audit M-03). When the operator
+  // exports BSC_EXPECTED_DEPLOYER and/or BSC_EXPECTED_PROXY_ADDRESS, the
+  // script aborts on mismatch BEFORE broadcasting any tx. Defends against:
+  //   - wrong key in BSC_PRIVATE_KEY (deployer signs with unintended EOA)
+  //   - wrong-salt deploy at unintended proxy address
+  //   - operator running deploy on wrong chain by accident
+  // Setting both is RECOMMENDED for production deploys; missing them only
+  // logs an INFO note (no abort) for bootstrap rehearsals.
+  const expectedDeployer = process.env["BSC_EXPECTED_DEPLOYER"];
+  if (expectedDeployer !== undefined && expectedDeployer.trim() !== "") {
+    if (expectedDeployer.toLowerCase() !== account.address.toLowerCase()) {
+      throw new Error(
+        `BSC_EXPECTED_DEPLOYER mismatch: got ${account.address}, expected ${expectedDeployer}. ` +
+          `Refusing to broadcast — verify BSC_PRIVATE_KEY corresponds to the documented deployer.`
+      );
+    }
+    console.log(`  PASS: deployer matches BSC_EXPECTED_DEPLOYER`);
+  } else if (cfg.productionMode) {
+    throw new Error(
+      `BSC_PRODUCTION_MODE=true requires BSC_EXPECTED_DEPLOYER to be set ` +
+        `(operator must declare the intended deployer EOA upfront).`
+    );
+  } else {
+    console.log(`  INFO: BSC_EXPECTED_DEPLOYER unset — bootstrap mode, skipping deployer assert`);
+  }
+  const expectedProxy = process.env["BSC_EXPECTED_PROXY_ADDRESS"];
+  if (expectedProxy !== undefined && expectedProxy.trim() !== "") {
+    if (expectedProxy.toLowerCase() !== predicted.toLowerCase()) {
+      throw new Error(
+        `BSC_EXPECTED_PROXY_ADDRESS mismatch: predicted ${predicted}, expected ${expectedProxy}. ` +
+          `Refusing to broadcast — verify the salt and deployer combination produces the intended proxy address.`
+      );
+    }
+    console.log(`  PASS: predicted address matches BSC_EXPECTED_PROXY_ADDRESS`);
+  } else if (cfg.productionMode) {
+    throw new Error(
+      `BSC_PRODUCTION_MODE=true requires BSC_EXPECTED_PROXY_ADDRESS to be set ` +
+        `(operator must declare the intended proxy address upfront).`
+    );
+  } else {
+    console.log(`  INFO: BSC_EXPECTED_PROXY_ADDRESS unset — bootstrap mode, skipping proxy assert`);
+  }
+
   // Pre-broadcast Safe-shape gate (CertiK pre-audit H-02). Production mode
   // requires Safe.threshold >= 3 and Safe.owners.length >= 5; bootstrap
   // mode logs the same numbers as info but does not abort.
