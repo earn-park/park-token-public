@@ -29,6 +29,25 @@ contract ParkTokenUpgradeStub is ParkToken {
     }
 }
 
+/// @notice EAA-07 H-1 hazard simulator: reads the OZ ERC20Capped `_cap` ERC-7201
+///         slot directly via assembly, mimicking what a successor implementation
+///         that drops the `pure cap()` override would observe (Solidity forbids
+///         widening `pure` → `view` in an override, so a real successor would
+///         have to be deployed via a different inheritance graph; this stub
+///         simulates that observation deterministically).
+contract ParkTokenCapFromSlotStub is ParkToken {
+    function capFromSlot() public view returns (uint256 stored) {
+        bytes32 slot = 0x0f070392f17d5f958cc1ac31867dabecfc5c9758b4a419a200803226d7155d00;
+        assembly {
+            stored := sload(slot)
+        }
+    }
+
+    function implVersion() public pure override returns (string memory) {
+        return "1.0.0-cap-slot-reader-test";
+    }
+}
+
 /// @notice Test-only ERC-20 used for rescue path coverage.
 contract DummyERC20 {
     string public name = "Dummy";
@@ -899,6 +918,26 @@ contract ParkTokenTest is Test {
         uint256 stored = uint256(vm.load(address(token), derived));
         assertEq(stored, token.cap(), "_cap slot drifted from cap() override");
         assertEq(stored, EXPECTED_INITIAL_SUPPLY, "_cap slot not initialised to INITIAL_SUPPLY");
+    }
+
+    /// @notice Tag: EAA-07. Directly exercises the H-1 hazard: deploys a successor
+    ///         impl that reads the `_cap` ERC-7201 slot (instead of the `pure`
+    ///         constant return path), upgrades the proxy to it, and asserts the
+    ///         slot read returns `EXPECTED_INITIAL_SUPPLY`. This is the load-bearing
+    ///         test for EAA-07 — it proves a future implementation that resumes
+    ///         slot-reading observes the value `__ERC20Capped_init` wrote at init.
+    function test_capSlotRead_returnsInitialSupply_postUpgrade() public {
+        ParkTokenCapFromSlotStub newImpl = new ParkTokenCapFromSlotStub();
+        vm.prank(address(timelock));
+        token.upgradeToAndCall(address(newImpl), "");
+        ParkTokenCapFromSlotStub upgraded = ParkTokenCapFromSlotStub(address(token));
+        assertEq(
+            upgraded.capFromSlot(),
+            EXPECTED_INITIAL_SUPPLY,
+            "EAA-07: post-upgrade slot read did not return INITIAL_SUPPLY"
+        );
+        assertEq(token.cap(), EXPECTED_INITIAL_SUPPLY, "EAA-07: pure cap() drifted post-upgrade");
+        assertEq(token.cap(), upgraded.capFromSlot(), "EAA-07: slot read and pure cap() disagree post-upgrade");
     }
 
     /// @notice Tag: EAA-07. Confirms the `_cap` ERC-7201 slot survives a UUPS
