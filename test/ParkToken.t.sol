@@ -881,6 +881,45 @@ contract ParkTokenTest is Test {
         assertEq(expected, 0x2c6f79634877d4fe165c547185a8e0ef04f5e43f93083c43ee2d9f6afee57d00);
     }
 
+    /// @notice Tag: EAA-07. Asserts the OZ ERC20CappedUpgradeable `_cap` ERC-7201
+    ///         slot is populated at init AND that `cap()` returns the same value.
+    ///         If a successor implementation drops the `pure` override and reads
+    ///         the storage slot, this test guarantees the slot already holds
+    ///         INITIAL_SUPPLY so behaviour is preserved.
+    /// @dev    Mandatory in every successor impl test file per docs/UPGRADE-HAZARDS H-1.
+    function test_capNamespaceSlot_matchesERC7201_andInitValue() public view {
+        // Derive the OZ ERC-7201 namespace slot from the documented namespace string.
+        bytes32 derived =
+            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20Capped")) - 1)) & ~bytes32(uint256(0xff));
+        // Cross-check against the OZ-vendored literal (catches a namespace
+        // rename in a future OZ release before silent drift can occur).
+        assertEq(derived, 0x0f070392f17d5f958cc1ac31867dabecfc5c9758b4a419a200803226d7155d00);
+        // `ERC20CappedStorage` is a single-field struct holding `uint256 _cap`,
+        // so the namespace base slot directly holds the cap as a uint256.
+        uint256 stored = uint256(vm.load(address(token), derived));
+        assertEq(stored, token.cap(), "_cap slot drifted from cap() override");
+        assertEq(stored, EXPECTED_INITIAL_SUPPLY, "_cap slot not initialised to INITIAL_SUPPLY");
+    }
+
+    /// @notice Tag: EAA-07. Confirms the `_cap` ERC-7201 slot survives a UUPS
+    ///         upgrade unchanged. Even if a successor implementation drops the
+    ///         `pure cap()` override and reverts to OZ's slot-reading behaviour,
+    ///         the slot still carries INITIAL_SUPPLY because no upgrade re-runs
+    ///         `__ERC20Capped_init` and nothing writes the slot post-init.
+    function test_capStoragePreservedAcrossUpgrade() public {
+        bytes32 slot = 0x0f070392f17d5f958cc1ac31867dabecfc5c9758b4a419a200803226d7155d00;
+        uint256 storedBefore = uint256(vm.load(address(token), slot));
+        assertEq(storedBefore, EXPECTED_INITIAL_SUPPLY);
+
+        ParkTokenUpgradeStub newImpl = new ParkTokenUpgradeStub();
+        vm.prank(address(timelock));
+        token.upgradeToAndCall(address(newImpl), "");
+
+        uint256 storedAfter = uint256(vm.load(address(token), slot));
+        assertEq(storedAfter, storedBefore, "_cap slot mutated by upgrade");
+        assertEq(storedAfter, EXPECTED_INITIAL_SUPPLY, "_cap slot drifted from INITIAL_SUPPLY post-upgrade");
+    }
+
     // ============================ Misc =================================
 
     function test_supportsInterface() public view {
