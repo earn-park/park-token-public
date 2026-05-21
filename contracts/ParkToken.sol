@@ -214,10 +214,24 @@ contract ParkToken is
             revert AdminDelayTooLong(c.defaultAdminTransferDelay, MAX_ADMIN_DELAY);
         }
         if (bytes(c.initialContractURI).length == 0) revert EmptyContractURI();
-        // EOA-vs-contract guard. Limitation: a Pectra-era EIP-7702 delegated
-        // EOA reports `code.length > 0`, so this check cannot defeat that
-        // class of misconfiguration on its own. Operators MUST verify the
-        // upgrader address is a deployed TimelockController before broadcasting.
+        // EOA-vs-contract guard. This is a coarse "not-EOA" check only. It
+        // proves `upgrader` has code, NOT that it is the intended
+        // TimelockController with the correct minDelay, proposer/executor/
+        // canceller roles, and self-administered admin. The FULL upgrader
+        // topology is verified off-chain in the deploy tooling
+        // (scripts/deploy/base/deploy-bsc.ts::runPostDeployAssertions), which
+        // asserts: Timelock minDelay; Safe holds PROPOSER_ROLE + CANCELLER_ROLE;
+        // address(0) holds EXECUTOR_ROLE (open-executor by design); the proxy's
+        // getRoleAdmin(TIMELOCK_ADMIN_ROLE) is self-administered and the Timelock
+        // holds DEFAULT_ADMIN_ROLE on itself; and the deployer retains no
+        // Timelock roles. Those checks run post-broadcast and fail the deploy
+        // run (non-zero exit, no manifest written) on any mismatch. On-chain
+        // topology checks are intentionally omitted here to avoid coupling the
+        // token to the Timelock ABI and adding gas to initialize().
+        //
+        // Residual limitation: a Pectra-era EIP-7702 delegated EOA reports
+        // `code.length > 0`, so this guard cannot defeat that class of
+        // misconfiguration on its own — hence the off-chain verification above.
         if (c.upgrader.code.length == 0) revert UpgraderNotContract(c.upgrader);
         // Pairwise distinctness across all three specialised actors.
         // - `defaultAdmin == upgrader`: would let DEFAULT_ADMIN bypass the
