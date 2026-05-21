@@ -328,13 +328,27 @@ contract ParkTokenTest is Test {
     }
 
     function test_mint_revertsWhenExceedingCap() public {
+        // EAA-04: the local precheck reverts with (amount, cap), not the
+        // OZ-canonical (supply + amount, cap). Here amount = 1.
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(ERC20CappedUpgradeable.ERC20ExceededCap.selector, 1, EXPECTED_INITIAL_SUPPLY)
+        );
+        token.mint(admin, 1);
+    }
+
+    /// @notice Tag: EAA-04. Pathological input that would have overflowed
+    ///         `supply + amount` in the previous unchecked-revert payload.
+    ///         Confirms the new payload carries the caller-requested
+    ///         `type(uint256).max` verbatim and the revert still fires.
+    function test_mint_revertsWithExactAmount_forPathologicalInput() public {
         vm.prank(admin);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ERC20CappedUpgradeable.ERC20ExceededCap.selector, EXPECTED_INITIAL_SUPPLY + 1, EXPECTED_INITIAL_SUPPLY
+                ERC20CappedUpgradeable.ERC20ExceededCap.selector, type(uint256).max, EXPECTED_INITIAL_SUPPLY
             )
         );
-        token.mint(admin, 1);
+        token.mint(admin, type(uint256).max);
     }
 
     function test_mint_revertsWithoutAdminRole() public {
