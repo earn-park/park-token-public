@@ -302,26 +302,27 @@ contract ParkToken is
     ///         reverts CannotRescueSelf).
     /// @param amount Units to mint. Must be non-zero. `totalSupply() +
     ///         amount ≤ cap()` enforced via the ERC20Capped `_update` hook.
+    /// @dev    Over-cap inputs revert with `ERC20ExceededCap(amount, cap)` —
+    ///         the first arg is the caller-requested `amount`, NOT the
+    ///         OZ-canonical `supply + amount`. We deviate so the error payload
+    ///         stays well-defined for every uint256 input including pathological
+    ///         values where `supply + amount` would overflow. The error
+    ///         selector `ERC20ExceededCap(uint256,uint256)` and the second arg
+    ///         (`cap`) are unchanged.
     function mint(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (amount == 0) revert ZeroMintAmount();
         if (to == address(this)) revert CannotMintToSelf();
-        // Local cap precheck so the canonical `ERC20ExceededCap` error path
-        // is the one taken even for inputs that would overflow `_update`'s
-        // checked `_totalSupply += amount` arithmetic and surface as
-        // Panic(0x11) instead. Subtraction `maxCap - supply`
-        // is safe: `supply <= cap` is invariant (every increase routes through
-        // this gate or `_mint` in initialize). The `unchecked` block on the
-        // revert preserves the OZ canonical `(increasedSupply, cap)` error
-        // shape for normal-overrun inputs (where `supply + amount` doesn't
-        // overflow) and gracefully handles extreme inputs where it does
-        // (the wrapped value is meaningless for those, but the mint still
-        // correctly aborts via the custom error rather than Panic).
+        // Local cap precheck so the canonical `ERC20ExceededCap` error path is
+        // the one taken even for inputs that would overflow `_update`'s checked
+        // `_totalSupply += amount` arithmetic and surface as Panic(0x11) instead.
+        // Subtraction `maxCap - supply` is safe under the `supply <= cap`
+        // invariant (every increase routes through this gate or initialize-time
+        // `_mint`). Reporting `amount` directly avoids any wrap in the error
+        // payload — see the @dev tag above for the semantic deviation note.
         uint256 supply = totalSupply();
         uint256 maxCap = cap();
         if (amount > maxCap - supply) {
-            unchecked {
-                revert ERC20ExceededCap(supply + amount, maxCap);
-            }
+            revert ERC20ExceededCap(amount, maxCap);
         }
         _mint(to, amount);
     }
