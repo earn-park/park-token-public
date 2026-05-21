@@ -29,7 +29,7 @@ between toolchains, so the Foundry and Hardhat hashes diverge intentionally.
 
 | Contract | Toolchain | deployedBytecode keccak256 |
 |---|---|---|
-| `ParkToken` (Foundry) | foundry 1.5.1-stable | `0xPENDING_CI_REGEN_FOUNDRY_LINUX` |
+| `ParkToken` (Foundry) | foundry 1.5.1-stable | `0x42674d5d044f7f016c66150bd38958ceb90b5c16cea1a8f24550c08cdec57285` |
 | `ParkToken` (Hardhat) | hardhat 3.4.1 | `0xd219486da14fc14485ce5190aaf5c116288755ff9cf76850ed834685a2fea711` |
 | `ParkERC1967Proxy` (Foundry) | foundry 1.5.1-stable | `0x967ba018df73cf1b22c6073907ba0d107582c812e34a04925a1120f56401ea34` |
 | `ParkERC1967Proxy` (Hardhat) | hardhat 3.4.1 | `0xfa7c32f150b12695112b2747006e70fd00acb277ebfa7619780d95f5a3a04c32` |

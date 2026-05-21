@@ -10,15 +10,15 @@ label. A future commit may bump it explicitly when a sentinel rename is
 bundled with another upgrade.
 
 ### Changed
-- `mint()` now precomputes `amount > cap() - totalSupply()` and
-  reverts with `ERC20ExceededCap(supply + amount, cap)` (canonical OZ shape,
-  unchecked-wrapped for extreme inputs). Eliminates the Panic(0x11) path
-  for inputs that would overflow `_update`'s checked `_totalSupply +=
-  amount`. Bytecode for `ParkToken` changes:
-  - new Foundry: `0x72f6be4bfca1d2b31f4c4b2f0da0dbf1e7b889bf80698198c5dc9038f7dd9dd0`
-  - new Hardhat: `0x871f179d9ce0bcab930a3a9263a604ac3bf545fa26243510084bf6acba9839d2`
-  - was Foundry: `0x01bbce7787518df25d8a571718ff271d597988585f7c43a72d918ea77ed678fe`
-  - was Hardhat: `0x16d19ffa2817afa6662bacc108f4cf449a02cbe0851af283e8a378e8397d5305`
+- `mint()` precomputes `amount > cap() - totalSupply()` and reverts with
+  `ERC20ExceededCap(amount, cap)` — the first arg is the caller-requested
+  `amount`, not the OZ-canonical `supply + amount`. This keeps the error
+  payload well-defined for every uint256 input (including pathological
+  values where `supply + amount` would overflow) while preserving the
+  selector `ERC20ExceededCap(uint256,uint256)` and the second arg. Also
+  eliminates the Panic(0x11) path for inputs that would overflow
+  `_update`'s checked `_totalSupply += amount`. Bytecode for `ParkToken`
+  changes (regenerated baseline in `docs/BYTECODE-BASELINE.md`).
   - `ParkERC1967Proxy` and `ParkTimelockController` hashes unchanged.
 - `scripts/ops/safe-exec.ts` and `scripts/ops/schedule-upgrade.ts`
   switch into "calldata-emit mode" when Safe `getThreshold() >= 2`: they
