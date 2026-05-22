@@ -18,7 +18,14 @@ silently return junk.
 
 **Operator action on every upgrade:** confirm `cap()` either (a) remains a `pure` override
 returning a constant, OR (b) explicitly verifies `super.cap() == expected` in the new
-implementation.
+implementation. **MANDATORY:** every successor implementation's test file MUST carry the
+EAA-07 regression tests `test_capNamespaceSlot_matchesERC7201_andInitValue`,
+`test_capSlotRead_returnsInitialSupply_postUpgrade`, and
+`test_capStoragePreservedAcrossUpgrade`, kept green (each tagged `EAA-07` in NatSpec,
+enabling a `grep "Tag: EAA-07"` presence check in a future CI gate). They derive the
+`_cap` ERC-7201 slot, cross-check it against the OZ vendored literal, assert it equals
+`cap()` and `INITIAL_SUPPLY`, and prove the slot survives a UUPS upgrade — directly
+exercising this hazard so a successor that resumes slot-reading is provably correct.
 
 ---
 
