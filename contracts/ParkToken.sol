@@ -233,7 +233,10 @@ contract ParkToken is
         // `code.length > 0`, so this guard cannot defeat that class of
         // misconfiguration on its own — hence the off-chain verification above.
         if (c.upgrader.code.length == 0) revert UpgraderNotContract(c.upgrader);
-        // Pairwise distinctness across all three specialised actors.
+        // Pairwise distinctness across all three specialised actors. This is a
+        // DEPLOY-TIME HYGIENE check, not a runtime invariant: it forces
+        // operators to seed three separate keys at init so two independent
+        // compartments must be compromised, never one.
         // - `defaultAdmin == upgrader`: would let DEFAULT_ADMIN bypass the
         //   Timelock by holding TIMELOCK_ADMIN_ROLE / UPGRADER_ROLE itself.
         // - `defaultAdmin == rescuer`: while not a direct privilege
@@ -242,6 +245,21 @@ contract ParkToken is
         //   would have to compromise twice.
         // - `upgrader == rescuer`: same compartment-collapse argument; the
         //   Timelock is a contract, the rescuer is typically a Safe.
+        //
+        // Runtime durability differs by role:
+        // - UPGRADER_ROLE is a DURABLE invariant — its admin is the
+        //   self-administered TIMELOCK_ADMIN_ROLE (set above), so DEFAULT_ADMIN
+        //   can never escalate to upgrade rights and bypass the Timelock.
+        // - RESCUER_ROLE admin is intentionally left as DEFAULT_ADMIN_ROLE (OZ
+        //   default, not hardened). DEFAULT_ADMIN MAY post-init grant itself
+        //   RESCUER_ROLE; this is authorized-by-design, NOT an escalation. It
+        //   lets the Safe rotate a lost or compromised rescue key without a
+        //   UUPS upgrade. RESCUER can only sweep FOREIGN ERC-20/ETH stuck on
+        //   the proxy — `rescueERC20(self)` reverts `CannotRescueSelf`, so the
+        //   rescuer can never reach PARK supply, holder balances, mint,
+        //   metadata, or the upgrade path. DEFAULT_ADMIN already holds strictly
+        //   broader authority (mint-to-cap + metadata), so self-granting
+        //   RESCUER changes nothing in the trust model.
         if (c.defaultAdmin == c.upgrader) revert DuplicateRoleAssignment(c.upgrader);
         if (c.defaultAdmin == c.rescuer) revert DuplicateRoleAssignment(c.rescuer);
         if (c.upgrader == c.rescuer) revert DuplicateRoleAssignment(c.upgrader);
