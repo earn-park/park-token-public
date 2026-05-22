@@ -299,6 +299,11 @@ describe("runPostDeployAssertions", () => {
         if (params.functionName === "implVersion") return "v1.0.0";
         if (params.functionName === "contractURI") return "https://earnpark.com/token-metadata.json";
         throw new Error(`Unexpected readContract call: ${params.functionName}`);
+      },
+      // EAA-02: a healthy proxy reverts InvalidInitialization() on re-init.
+      // Surface the selector so the fallback match in runPostDeployAssertions fires.
+      simulateContract: async (): Promise<unknown> => {
+        throw new Error("execution reverted, custom error 0xf92ee8a9");
       }
     } as unknown as PostDeployAssertionArgs["publicClient"];
 
@@ -316,6 +321,101 @@ describe("runPostDeployAssertions", () => {
       expectedContractURI: "https://earnpark.com/token-metadata.json"
     });
     // No throw == pass
+  });
+});
+
+describe("runPostDeployAssertions EAA-02 init-guard", () => {
+  // All token-state + role reads return healthy values; only simulateContract
+  // (the re-initialize probe) varies per branch.
+  const defaultAdmin = "0xdddd000000000000000000000000000000000001";
+  const rescuer = "0xeeee000000000000000000000000000000000001";
+  const timelockAddress = "0xcccc000000000000000000000000000000000001";
+  const deployer = "0x1111111111111111111111111111111111111111";
+  const upgraderRole = "0x189ab7a9244df0848122154315af71fe140f3db0fe014031783b0946b8c9d2e3" as Hex;
+  const timelockAdminRole = "0x5f58e3a2316349923ce3780f8d587db2d72378aed66a8261c916544fa6846ca5" as Hex;
+  const rescuerRole = "0x0000000000000000000000000000000000000000000000000000000000000001" as Hex;
+  const defaultAdminRole = ("0x" + "00".repeat(32)) as Hex;
+  // OZ TimelockController role hashes (constants — match deploy-bsc.ts).
+  const PROPOSER_ROLE = "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1" as Hex;
+  const EXECUTOR_ROLE = "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63" as Hex;
+  const CANCELLER_ROLE = "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783" as Hex;
+  const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+  const EXPECTED_CAP = 1_000_000_000n * 10n ** 6n;
+
+  function makeClient(simulate: () => Promise<unknown>): PostDeployAssertionArgs["publicClient"] {
+    return {
+      readContract: async (params: { functionName: string; args?: unknown[] }): Promise<unknown> => {
+        if (params.functionName === "UPGRADER_ROLE") return upgraderRole;
+        if (params.functionName === "TIMELOCK_ADMIN_ROLE") return timelockAdminRole;
+        if (params.functionName === "RESCUER_ROLE") return rescuerRole;
+        if (params.functionName === "getMinDelay") return 900n;
+        if (params.functionName === "hasRole") {
+          const [role, account] = params.args as [string, string];
+          const a = account.toLowerCase();
+          if (role === defaultAdminRole && a === defaultAdmin) return true;
+          if (role === upgraderRole && a === timelockAddress) return true;
+          if (role === timelockAdminRole && a === timelockAddress) return true;
+          if (role === rescuerRole && a === rescuer) return true;
+          if (role === PROPOSER_ROLE && a === defaultAdmin) return true;
+          if (role === CANCELLER_ROLE && a === defaultAdmin) return true;
+          if (role === EXECUTOR_ROLE && a === ZERO_ADDR) return true;
+          if (role === defaultAdminRole && a === timelockAddress) return true;
+          return false;
+        }
+        if (params.functionName === "getRoleAdmin") {
+          const [role] = params.args as [string];
+          if (
+            role.toLowerCase() === upgraderRole.toLowerCase() ||
+            role.toLowerCase() === timelockAdminRole.toLowerCase()
+          ) {
+            return timelockAdminRole;
+          }
+          return defaultAdminRole;
+        }
+        if (params.functionName === "cap") return EXPECTED_CAP;
+        if (params.functionName === "totalSupply") return EXPECTED_CAP;
+        if (params.functionName === "balanceOf") return EXPECTED_CAP;
+        if (params.functionName === "implVersion") return "v1.0.0";
+        if (params.functionName === "contractURI") return "https://earnpark.com/token-metadata.json";
+        throw new Error(`Unexpected readContract call: ${params.functionName}`);
+      },
+      simulateContract: simulate
+    } as unknown as PostDeployAssertionArgs["publicClient"];
+  }
+
+  const baseArgs = {
+    proxyAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex,
+    predictedAddress: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" as Hex,
+    timelockAddress: timelockAddress as Hex,
+    defaultAdmin: defaultAdmin as Hex,
+    rescuer: rescuer as Hex,
+    initialHolder: defaultAdmin as Hex,
+    deployer: deployer as Hex,
+    expectedTimelockDelay: 900,
+    expectedContractURI: "https://earnpark.com/token-metadata.json"
+  };
+
+  it("PASS: re-initialize reverts InvalidInitialization (selector fallback)", async () => {
+    const client = makeClient(async () => {
+      throw new Error("execution reverted, custom error 0xf92ee8a9");
+    });
+    await runPostDeployAssertions({ publicClient: client, ...baseArgs });
+    // no throw == initializer consumed
+  });
+
+  it("FAIL: re-initialize reverts with a NON-guard error (initializer may be open)", async () => {
+    const client = makeClient(async () => {
+      throw new Error("execution reverted, custom error 0xdeadbeef DuplicateRoleAssignment");
+    });
+    await assert.rejects(() => runPostDeployAssertions({ publicClient: client, ...baseArgs }), /NON-guard error/);
+  });
+
+  it("FAIL: re-initialize does NOT revert (initializer still callable)", async () => {
+    const client = makeClient(async () => ({ request: {}, result: undefined }));
+    await assert.rejects(
+      () => runPostDeployAssertions({ publicClient: client, ...baseArgs }),
+      /did NOT revert post-deploy/
+    );
   });
 });
 

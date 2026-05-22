@@ -24,7 +24,9 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve as pathResolve } from "node:path";
 import {
+  BaseError,
   concat,
+  ContractFunctionRevertedError,
   createPublicClient,
   createWalletClient,
   encodeAbiParameters,
@@ -790,6 +792,67 @@ export async function runPostDeployAssertions(args: PostDeployAssertionArgs): Pr
     throw new Error(`contractURI() "${liveURI}" != expected "${args.expectedContractURI}"`);
   }
   console.log(`  PASS: contractURI() == "${liveURI}"`);
+
+  // EAA-02: confirm the initializer is consumed and cannot be re-invoked.
+  // ParkERC1967Proxy forwards arbitrary constructor `_data`; OZ rejects empty
+  // calldata but does NOT verify non-empty calldata actually invoked
+  // ParkToken.initialize(). A mis-encoded deploy could leave initialize()
+  // callable, letting anyone seize roles + INITIAL_SUPPLY. The OZ
+  // `initializer` modifier reverts InvalidInitialization() once
+  // `_initialized > 0`, and it fires BEFORE _validateInitConfig — so a healthy
+  // proxy reverts InvalidInitialization regardless of the probe args. Any
+  // OTHER revert means the guard did NOT fire (initializer still open); a
+  // successful simulation means initialize() is freely callable. Both are
+  // EAA-02 failures. The probe args are intentionally arbitrary (never reached).
+  const INIT_GUARD_ABI = [
+    ...PARK_TOKEN_INITIALIZE_ABI,
+    { type: "error", name: "InvalidInitialization", inputs: [] }
+  ] as const;
+  const probeConfig = {
+    defaultAdmin: args.defaultAdmin,
+    defaultAdminTransferDelay: 0,
+    upgrader: args.timelockAddress,
+    rescuer: args.rescuer,
+    initialHolder: args.initialHolder,
+    initialContractURI: ""
+  };
+  let initGuardFired = false;
+  try {
+    await args.publicClient.simulateContract({
+      address: args.proxyAddress,
+      abi: INIT_GUARD_ABI,
+      functionName: "initialize",
+      args: [probeConfig],
+      account: args.deployer
+    });
+  } catch (e) {
+    if (e instanceof BaseError) {
+      const reverted = e.walk((err) => err instanceof ContractFunctionRevertedError);
+      if (reverted instanceof ContractFunctionRevertedError && reverted.data?.errorName === "InvalidInitialization") {
+        initGuardFired = true;
+      }
+    }
+    // Fallback: some RPC nodes return undecoded revert data — match the
+    // InvalidInitialization() selector directly.
+    if (!initGuardFired && String(e).includes("0xf92ee8a9")) {
+      initGuardFired = true;
+    }
+    if (!initGuardFired) {
+      throw new Error(
+        "EAA-02: re-initialize() reverted with a NON-guard error — the OZ " +
+          "initializer guard did not fire, so the initializer may still be open. " +
+          `Refusing to record this deploy. Underlying: ${String(e)}`
+      );
+    }
+  }
+  if (!initGuardFired) {
+    throw new Error(
+      "EAA-02: initialize() did NOT revert post-deploy — the proxy may have been " +
+        "deployed with non-initializing calldata, leaving the initializer callable. " +
+        "Anyone could seize roles + INITIAL_SUPPLY. Refusing to record this deploy."
+    );
+  }
+  console.log("  PASS: initialize() reverts InvalidInitialization() (initializer consumed)");
 }
 
 // ── Manifest ─────────────────────────────────────────────────────────────────
