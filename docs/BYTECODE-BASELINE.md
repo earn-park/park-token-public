@@ -31,7 +31,7 @@ between toolchains, so the Foundry and Hardhat hashes diverge intentionally.
 |---|---|---|
 | `ParkToken` (Foundry) | foundry 1.5.1-stable | `0x2e7105f1a71b9b9c8bd6d206ac9e37b07e5dac2dfd7a413daa37de8882321e8c` |
 | `ParkToken` (Hardhat) | hardhat 3.4.1 | `0xb7f7a1ba0bd5e8b22c85a6dd77aadd81d9da258a0bd12c48c2f1b78697ce601b` |
-| `ParkERC1967Proxy` (Foundry) | foundry 1.5.1-stable | `0xPENDING_CI_REGEN_FOUNDRY_LINUX` |
+| `ParkERC1967Proxy` (Foundry) | foundry 1.5.1-stable | `0x3dd76beba31ed538a9932dcd1f80247b6a499e2c0ddf44b19a96462f8e17d0b0` |
 | `ParkERC1967Proxy` (Hardhat) | hardhat 3.4.1 | `0xfa43b1689ee2ff2f373280c214e7443eda53572c882708cbfbaf239a52504ab3` |
 | `ParkTimelockController` (Foundry) | foundry 1.5.1-stable | `0x3a0c9bd34c5788ccb1cf6d0bc2ba59d5f828ca21a636826199f9508cb08f2f2c` |
 | `ParkTimelockController` (Hardhat) | hardhat 3.4.1 | `0xcb779433afe4d79f0e3482401f327c0546d77efb4deeef00e4bd52b4694f6cb9` |
