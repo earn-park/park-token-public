@@ -7,8 +7,20 @@
         {
           "indexed": false,
           "internalType": "string",
+          "name": "previousURI",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
           "name": "newURI",
           "type": "string"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "operator",
+          "type": "address"
         }
       ],
       "name": "ContractURIUpdated",

@@ -539,9 +539,11 @@ contract ParkTokenTest is Test {
     // ============================ Metadata =============================
 
     function test_setContractURI_success() public {
+        // EAA-06: event is ContractURIUpdated(previousURI, newURI, indexed operator).
+        // operator is topic1 (checkTopic1=true); previousURI is the init URI.
         vm.prank(admin);
-        vm.expectEmit(false, false, false, true, address(token));
-        emit ParkToken.ContractURIUpdated("ipfs://new-uri");
+        vm.expectEmit(true, false, false, true, address(token));
+        emit ParkToken.ContractURIUpdated("https://earnpark.com/token-metadata.json", "ipfs://new-uri", admin);
         token.setContractURI("ipfs://new-uri");
         assertEq(token.contractURI(), "ipfs://new-uri");
     }
