@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-10T23:15:51.022Z",
+  "generatedAt": "2026-05-22T01:49:34.648Z",
   "generatedBy": "scripts/ops/build-governance-abi.mjs",
   "description": "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (deploy-time slim ABI).",
   "contracts": {
@@ -12,8 +12,20 @@
             {
               "indexed": false,
               "internalType": "string",
+              "name": "previousURI",
+              "type": "string"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
               "name": "newURI",
               "type": "string"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "operator",
+              "type": "address"
             }
           ],
           "name": "ContractURIUpdated",

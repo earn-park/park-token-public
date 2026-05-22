@@ -145,7 +145,7 @@ contract ParkToken is
 
     event RescuedERC20(address indexed token, address indexed to, uint256 amount, address indexed operator);
     event RescuedETH(address indexed to, uint256 amount, address indexed operator);
-    event ContractURIUpdated(string newURI);
+    event ContractURIUpdated(string previousURI, string newURI, address indexed operator);
 
     // ============================ Init =================================
 
@@ -194,7 +194,8 @@ contract ParkToken is
         _grantRole(RESCUER_ROLE, config.rescuer);
 
         _getMetadataStorage().contractURI = config.initialContractURI;
-        emit ContractURIUpdated(config.initialContractURI);
+        // previousURI is "" — metadata has never been set before init.
+        emit ContractURIUpdated("", config.initialContractURI, msg.sender);
 
         _mint(config.initialHolder, INITIAL_SUPPLY);
     }
@@ -409,8 +410,10 @@ contract ParkToken is
     /// @param newURI Non-empty URI.
     function setContractURI(string calldata newURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (bytes(newURI).length == 0) revert EmptyContractURI();
-        _getMetadataStorage().contractURI = newURI;
-        emit ContractURIUpdated(newURI);
+        MetadataStorage storage $ = _getMetadataStorage();
+        string memory previousURI = $.contractURI;
+        $.contractURI = newURI;
+        emit ContractURIUpdated(previousURI, newURI, msg.sender);
     }
 
     // ============================ Version ==============================

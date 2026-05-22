@@ -181,9 +181,9 @@
       "severity": "INFO",
       "trigger": {
         "address": "${PROXY}",
-        "event": "ContractURIUpdated(string newURI)"
+        "event": "ContractURIUpdated(string previousURI, string newURI, address indexed operator)"
       },
-      "rationale": "Metadata URI swap (token-metadata.json content). Cross-check the new URI resolves to a sane document.",
+      "rationale": "Metadata URI swap (token-metadata.json content). Event carries previousURI + newURI + indexed operator — cross-check the new URI resolves to a sane document and the operator matches an authorized admin.",
       "destination": ["${SLACK_INFO}"]
     }
   ],
