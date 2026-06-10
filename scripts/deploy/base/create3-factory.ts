@@ -10,8 +10,14 @@
 // extcodehash. `verifyExtcodehash()` aborts if the on-chain bytecode at
 // the registered address does not match — guard against substitution.
 //
-// Salt invariant: `PARK_TOKEN_SALT` is committed to the project for life.
-// Changing it forfeits the single-address property of CREATE3.
+// Salt: `PARK_TOKEN_SALT` is the production salt. The CREATE3 address is a pure
+// function of (factory, deployer, salt), so this constant — together with the
+// deployer EOA and factory address — fully determines the deployed proxy
+// address (see docs/DEPLOYMENTS.md for the live mainnet address). The salt is
+// not a secret: it appears in the factory.deploy() calldata on-chain and only
+// the original deployer can ever reach the derived address (msg.sender-prefix).
+// Earlier pre-audit test deployments used the label `earnpark.parktoken.v1.proxy`;
+// that address is archived and must not be reused.
 //
 // References:
 //   - https://github.com/ZeframLou/create3-factory
@@ -42,7 +48,7 @@ export const CREATE3_FACTORY_REGISTRY: Readonly<
 } as const;
 
 export const PARK_TOKEN_SALT: Hex = keccak256(
-  toHex("earnpark.parktoken.v1.proxy")
+  toHex("earnpark.parktoken.production.v1.proxy")
 );
 
 // ZeframLou (Solmate-based) with msg.sender prefix:

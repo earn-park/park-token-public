@@ -20,10 +20,10 @@ describe("create3-factory module", () => {
     }
   });
 
-  it("exports a stable PARK_TOKEN_SALT constant", () => {
+  it("exports the production PARK_TOKEN_SALT constant", () => {
     assert.equal(
       PARK_TOKEN_SALT,
-      keccak256(Buffer.from("earnpark.parktoken.v1.proxy"))
+      keccak256(Buffer.from("earnpark.parktoken.production.v1.proxy"))
     );
   });
 });
