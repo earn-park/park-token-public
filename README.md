@@ -67,6 +67,7 @@ Both Foundry and Hardhat artifact families are baselined in
 
 ## Deploy (BSC mainnet)
 
+Live production addresses are in [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md).
 See `docs/DEPLOY-MECHANIC.md` for the full operator runbook. Short version:
 
 ```bash

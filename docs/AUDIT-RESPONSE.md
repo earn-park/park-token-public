@@ -4,6 +4,19 @@ Team responses to the external security review (finding IDs `EAA-01`…`EAA-07`)
 This document records the disposition of each finding; code-level fixes live in
 the contract / test / deploy sources and are cross-referenced below.
 
+**Final outcome** (external review final report, 2026-05-29): **0 Critical, 0 Major**;
+7 findings total — **4 Resolved, 3 Acknowledged** (by design). Summary:
+
+| ID | Severity | Final status |
+|---|---|---|
+| EAA-01 | Centralization | Acknowledged (disclosed, by design) |
+| EAA-02 | Medium | **Resolved** |
+| EAA-03 | Minor | Acknowledged (by design) |
+| EAA-04 | Minor | **Resolved** |
+| EAA-05 | Informational | Acknowledged (by design) |
+| EAA-06 | Informational | **Resolved** |
+| EAA-07 | Informational | **Resolved** |
+
 ---
 
 ## EAA-01 — Centralization (disposition: **disclosed, by design**)
@@ -78,7 +91,7 @@ target.
 
 | ID | Severity | Disposition | Where |
 |---|---|---|---|
-| EAA-02 | Medium | Post-deploy assertion that `initialize()` is consumed (reverts `InvalidInitialization()`); proxy-side selector guard tracked separately | `scripts/deploy/base/deploy-bsc.ts` (`runPostDeployAssertions`) |
+| EAA-02 | Medium | **Resolved**, defence in depth: (1) on-chain — `ParkERC1967Proxy` constructor reverts `UnexpectedInitSelector` unless the init calldata invokes `ParkToken.initialize`; (2) off-chain — post-deploy assertion that `initialize()` is consumed (reverts `InvalidInitialization()`) | `contracts/imports/ERC1967ProxyImport.sol`, `scripts/deploy/base/deploy-bsc.ts` (`runPostDeployAssertions`) |
 | EAA-03 | Minor | Documented: pairwise distinctness is deploy-time hygiene, not a runtime invariant; `RESCUER_ROLE` admin is `DEFAULT_ADMIN_ROLE` by design for key rotation | `contracts/ParkToken.sol` (`_validateInitConfig` NatSpec) |
 | EAA-04 | Minor | `mint()` reverts `ERC20ExceededCap(amount, cap)` — well-defined payload for all uint256 inputs (no overflow wrap); selector unchanged | `contracts/ParkToken.sol` (`mint`) |
 | EAA-05 | Informational | Documented: the `upgrader.code.length` check is a coarse not-EOA guard; full Timelock topology is verified off-chain by `runPostDeployAssertions` | `contracts/ParkToken.sol` (`_validateInitConfig` NatSpec) |
