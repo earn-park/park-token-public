@@ -30,6 +30,7 @@ against BscScan / Sourcify before integrating.
 | Treasury | [`0x92feF557FB7E0DED9F22Fa0B2A41a7D991888042`](https://bscscan.com/address/0x92feF557FB7E0DED9F22Fa0B2A41a7D991888042) | holds the initial 1B PARK supply |
 | Guardian | [`0xd060C2c2693cf07A7D74604CbcB390bf61dA485b`](https://bscscan.com/address/0xd060C2c2693cf07A7D74604CbcB390bf61dA485b) | Timelock `CANCELLER_ROLE` (emergency cancel of scheduled upgrades) |
 | Rescuer | [`0x0574c14AADb0185Afe257B147dD2Ec258D912BB1`](https://bscscan.com/address/0x0574c14AADb0185Afe257B147dD2Ec258D912BB1) | `RESCUER_ROLE` (recover non-PARK ERC-20 / native asset sent by mistake; cannot touch PARK) |
+| Vesting | [`0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5`](https://bscscan.com/address/0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5) | no contract role — operational custody for the vesting layer (Sablier streams + platform distribution); ordinary token holder |
 
 UUPS upgrades are gated by the Timelock (`UPGRADER_ROLE`) with a 48-hour delay;
 the Admin Safe proposes and the Guardian Safe can cancel within the window.
