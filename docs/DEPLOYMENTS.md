@@ -44,6 +44,10 @@ cannot grant itself upgrade authority.
   sole emergency canceller). Execute txs:
   grant [`0x2c5fdeb0…dfd8`](https://bscscan.com/tx/0x2c5fdeb00b2da6adc1cbba27fb4ec054f6581103372c5723122447591bc4dfd8),
   revoke [`0x4a7595c4…e692`](https://bscscan.com/tx/0x4a7595c47081c76c0d5767ddf8968023af5078861a8db9399b06d2d59d8ae692).
+- **2026-06-15** — Governance Safes raised from bootstrap 1/1 to **multisig**: **Admin,
+  Treasury, Rescuer, and Vesting are 3/5** on BSC, and the **Admin Safe is also 3/5** on
+  Arbitrum and Ethereum (same address). The Guardian Safe's multisig is being finalised.
+  Co-signer addresses are managed internally.
 
 ## Audit
 
