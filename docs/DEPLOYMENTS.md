@@ -37,8 +37,13 @@ the Admin Safe proposes and the Guardian Safe can cancel within the window.
 `TIMELOCK_ADMIN_ROLE` is self-administered by the Timelock — `DEFAULT_ADMIN`
 cannot grant itself upgrade authority.
 
-**Executed governance actions**
+**Governance actions**
 
+- **2026-06-18** *(scheduled — effective after the 48h Timelock delay)* — Timelock
+  `minDelay` reduction from **48h to 15m** (`updateDelay(900)`) initiated via
+  governance. The live `minDelay` stays 48h until the scheduled operation
+  executes; the Timelock row above and this entry will be updated with the
+  effective date and execute tx hash on completion.
 - **2026-06-15** — Timelock `CANCELLER_ROLE` rotated to the **Guardian Safe** and revoked
   from the Admin Safe, completing the proposer/canceller separation (Guardian is now the
   sole emergency canceller). Execute txs:
