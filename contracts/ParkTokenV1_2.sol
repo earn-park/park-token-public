@@ -38,7 +38,7 @@ contract ParkTokenV1_2 is ParkTokenV1_1, ERC20PausableUpgradeable {
     /// @param pauser Emergency multisig Safe to receive `PAUSER_ROLE`. Must be
     ///        non-zero; SHOULD be a multisig (a lost/compromised pauser could
     ///        pause the token).
-    function reinitializePauser(address pauser) external reinitializer(2) {
+    function reinitializePauser(address pauser) external onlyRole(UPGRADER_ROLE) reinitializer(2) {
         if (pauser == address(0)) revert ZeroPauser();
         _grantRole(PAUSER_ROLE, pauser);
     }

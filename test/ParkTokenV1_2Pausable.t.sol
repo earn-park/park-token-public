@@ -18,6 +18,7 @@ contract ParkTokenV1_2PausableTest is Test {
     bytes32 internal constant IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     uint256 internal constant EXPECTED_INITIAL_SUPPLY = 1_000_000_000 * 10 ** 6;
     uint48 internal constant ADMIN_DELAY = 48 hours;
+    bytes32 internal constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 internal constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     ParkToken internal token;
@@ -28,6 +29,7 @@ contract ParkTokenV1_2PausableTest is Test {
     address internal rescuer = makeAddr("rescuer");
     address internal holder = makeAddr("holder");
     address internal guardian = makeAddr("guardian");
+    address internal outsider = makeAddr("outsider");
 
     function setUp() public {
         address[] memory proposers = new address[](1);
@@ -55,6 +57,12 @@ contract ParkTokenV1_2PausableTest is Test {
         vm.prank(address(timelock));
         UUPSUpgradeable(address(token))
             .upgradeToAndCall(newImpl, abi.encodeCall(ParkTokenV1_2.reinitializePauser, (guardian)));
+    }
+
+    function _upgradeToV1_2EmptyData() internal {
+        address newImpl = address(new ParkTokenV1_2());
+        vm.prank(address(timelock));
+        UUPSUpgradeable(address(token)).upgradeToAndCall(newImpl, "");
     }
 
     function _implOf() internal view returns (address) {
@@ -138,5 +146,17 @@ contract ParkTokenV1_2PausableTest is Test {
         _upgradeToV1_2();
         vm.expectRevert();
         v12.reinitializePauser(holder);
+    }
+
+    function test_emptyDataUpgrade_blocksOutsiderReinitialize() public {
+        _upgradeToV1_2EmptyData();
+
+        vm.prank(outsider);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, outsider, UPGRADER_ROLE)
+        );
+        v12.reinitializePauser(outsider);
+
+        assertFalse(token.hasRole(PAUSER_ROLE, outsider));
     }
 }
