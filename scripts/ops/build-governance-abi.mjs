@@ -12,11 +12,15 @@
 //
 // Makes the ABI snapshot reproducible by any reviewer.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-const tokenAbi = JSON.parse(
-  readFileSync("artifacts/contracts/ParkToken.sol/ParkToken.json", "utf-8")
-).abi;
+const tokenArtifact =
+  process.env.PARK_TOKEN_ARTIFACT ??
+  (existsSync("artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json")
+    ? "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json"
+    : "artifacts/contracts/ParkToken.sol/ParkToken.json");
+
+const tokenAbi = JSON.parse(readFileSync(tokenArtifact, "utf-8")).abi;
 const tlAbi = JSON.parse(
   readFileSync(
     "artifacts/contracts/imports/TimelockControllerImport.sol/ParkTimelockController.json",
@@ -40,7 +44,8 @@ const tokenGovEvents = [
 const tokenGovFns = [
   "hasRole", "getRoleAdmin",
   "defaultAdmin", "pendingDefaultAdmin", "defaultAdminDelay",
-  "owner", "implVersion", "cap", "totalSupply", "DOMAIN_SEPARATOR"
+  "owner", "implVersion", "cap", "totalSupply", "DOMAIN_SEPARATOR",
+  "PAUSER_ROLE", "paused"
 ];
 const tlEvents = [
   "CallScheduled", "CallExecuted", "CallSalt", "Cancelled",
@@ -59,6 +64,7 @@ const select = (abi, names, kinds) =>
 const out = {
   generatedAt: new Date().toISOString(),
   generatedBy: "scripts/ops/build-governance-abi.mjs",
+  sourceArtifact: tokenArtifact,
   description:
     "Governance + Timelock + proxy event/function ABI subset for monitoring (Tenderly Alerts / Forta / The Graph). Distinct from ops/210-base-abi.json (deploy-time slim ABI).",
   contracts: {

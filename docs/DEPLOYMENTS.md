@@ -3,13 +3,14 @@
 Canonical production deployment addresses for PARK Token. Verify every address
 against BscScan / Sourcify before integrating.
 
-## BNB Smart Chain (chainId 56) — PRODUCTION v1.0.0
+## BNB Smart Chain (chainId 56) — PRODUCTION v1.1.0
 
 | Component | Address |
 |---|---|
 | **PARK Token (proxy)** | [`0xbc6829B26f0Bed03239E016ff11009c188844a8E`](https://bscscan.com/address/0xbc6829B26f0Bed03239E016ff11009c188844a8E) |
-| Implementation (`ParkToken`) | [`0xa3efcaeb1b882a4d874c5003a284967c3405462f`](https://bscscan.com/address/0xa3efcaeb1b882a4d874c5003a284967c3405462f) |
-| Timelock (`ParkTimelockController`, 48h minDelay) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) |
+| Implementation (`ParkTokenV1_1`) | [`0x885C40D264B31487d56d5391b74BCced48a9ba0A`](https://bscscan.com/address/0x885C40D264B31487d56d5391b74BCced48a9ba0A) |
+| Previous implementation (`ParkToken` v1.0.0) | [`0xa3efcaeb1b882a4d874c5003a284967c3405462f`](https://bscscan.com/address/0xa3efcaeb1b882a4d874c5003a284967c3405462f) |
+| Timelock (`ParkTimelockController`, 15m minDelay during MEXC upgrade sequence) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) |
 
 **Token parameters**
 
@@ -17,8 +18,8 @@ against BscScan / Sourcify before integrating.
 |---|---|
 | Name / Symbol | PARK Token / PARK |
 | Decimals | **6** (non-standard — scale raw amounts by 10^6, not 10^18) |
-| Total supply / cap | 1,000,000,000 PARK (fixed cap; burn-and-reissue model, never exceeds cap) |
-| Standard | ERC-20 + ERC-2612 (permit) + capped + UUPS (ERC-1822) |
+| Total supply / cap | 1,000,000,000 PARK cap; `mint()` removed in v1.1, so supply is strictly non-increasing after genesis |
+| Standard | ERC-20 + ERC-2612 (permit) + capped + burnable + UUPS (ERC-1822) |
 | Proxy pattern | ERC-1967 via ZeframLou CREATE3 factory `0x6aA3D87e99286946161dCA02B97C5806fC5eD46F` |
 | Salt | `keccak256("earnpark.parktoken.production.v1.proxy")` = `0x254ebb2bc1f56bd48ad3e36bc84029801f26da7cf0da0862279fa96710ebf884` |
 
@@ -26,24 +27,23 @@ against BscScan / Sourcify before integrating.
 
 | Safe | Address | Role |
 |---|---|---|
-| Admin | [`0xBE26469075864F48806dE7be55Fa12b5f9a00f78`](https://bscscan.com/address/0xBE26469075864F48806dE7be55Fa12b5f9a00f78) | `DEFAULT_ADMIN_ROLE` (mint to cap, metadata, rescuer admin) + Timelock `PROPOSER_ROLE` |
+| Admin | [`0xBE26469075864F48806dE7be55Fa12b5f9a00f78`](https://bscscan.com/address/0xBE26469075864F48806dE7be55Fa12b5f9a00f78) | `DEFAULT_ADMIN_ROLE` (metadata, rescuer admin, pauser rotation after v1.2; no mint since v1.1) + Timelock `PROPOSER_ROLE` |
 | Treasury | [`0x92feF557FB7E0DED9F22Fa0B2A41a7D991888042`](https://bscscan.com/address/0x92feF557FB7E0DED9F22Fa0B2A41a7D991888042) | holds the initial 1B PARK supply |
 | Guardian | [`0xd060C2c2693cf07A7D74604CbcB390bf61dA485b`](https://bscscan.com/address/0xd060C2c2693cf07A7D74604CbcB390bf61dA485b) | Timelock `CANCELLER_ROLE` (emergency cancel of scheduled upgrades) |
 | Rescuer | [`0x0574c14AADb0185Afe257B147dD2Ec258D912BB1`](https://bscscan.com/address/0x0574c14AADb0185Afe257B147dD2Ec258D912BB1) | `RESCUER_ROLE` (recover non-PARK ERC-20 / native asset sent by mistake; cannot touch PARK) |
 | Vesting | [`0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5`](https://bscscan.com/address/0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5) | no contract role — operational custody for the vesting layer (Sablier streams + platform distribution); ordinary token holder |
 
-UUPS upgrades are gated by the Timelock (`UPGRADER_ROLE`) with a 48-hour delay;
-the Admin Safe proposes and the Guardian Safe can cancel within the window.
+UUPS upgrades are gated by the Timelock (`UPGRADER_ROLE`). During the MEXC
+upgrade sequence the delay is 15 minutes; the Admin Safe proposes and the
+Guardian Safe can cancel within the window.
 `TIMELOCK_ADMIN_ROLE` is self-administered by the Timelock — `DEFAULT_ADMIN`
 cannot grant itself upgrade authority.
 
-**Governance actions**
+**Planned v1.2 delta:** add `PAUSER_ROLE`, `pause()`, and `unpause()` only.
+`mint`, freeze/blocklist, wipe/admin force-burn remain absent.
 
-- **2026-06-18** *(scheduled — effective after the 48h Timelock delay)* — Timelock
-  `minDelay` reduction from **48h to 15m** (`updateDelay(900)`) initiated via
-  governance. The live `minDelay` stays 48h until the scheduled operation
-  executes; the Timelock row above and this entry will be updated with the
-  effective date and execute tx hash on completion.
+**Executed governance actions**
+
 - **2026-06-15** — Timelock `CANCELLER_ROLE` rotated to the **Guardian Safe** and revoked
   from the Admin Safe, completing the proposer/canceller separation (Guardian is now the
   sole emergency canceller). Execute txs:
@@ -53,6 +53,9 @@ cannot grant itself upgrade authority.
   Treasury, Rescuer, and Vesting are 3/5** on BSC, and the **Admin Safe is also 3/5** on
   Arbitrum and Ethereum (same address). The Guardian Safe's multisig is being finalised.
   Co-signer addresses are managed internally.
+- **2026-06-22** — Stage 1 MEXC upgrade executed: proxy implementation moved to
+  `ParkTokenV1_1` at `0x885C40D264B31487d56d5391b74BCced48a9ba0A`; `mint()` is
+  absent and supply is strictly non-increasing after genesis.
 
 ## Audit
 

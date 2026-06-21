@@ -25,6 +25,7 @@ import "dotenv/config";
 import {
   createPublicClient,
   createWalletClient,
+  decodeFunctionData,
   encodeFunctionData,
   getAddress,
   http,
@@ -125,12 +126,48 @@ const UPGRADE_ABI = [
   }
 ] as const;
 
+const REINITIALIZE_PAUSER_ABI = [
+  {
+    type: "function",
+    name: "reinitializePauser",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "pauser", type: "address" }],
+    outputs: []
+  }
+] as const;
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v || v.trim() === "") {
     throw new Error(`Missing env ${name}`);
   }
   return v.trim();
+}
+
+function assertExpectedPauser(reinitCalldata: Hex, expectedPauserRaw: string | undefined): void {
+  if (expectedPauserRaw === undefined || expectedPauserRaw.trim() === "") return;
+
+  const expectedPauser = getAddress(expectedPauserRaw);
+  if (reinitCalldata === "0x") {
+    throw new Error(
+      `EXPECTED_PAUSER_ADDRESS=${expectedPauser} requires REINIT_CALLDATA=` +
+        `reinitializePauser(${expectedPauser}); got empty 0x.`
+    );
+  }
+
+  try {
+    const decoded = decodeFunctionData({ abi: REINITIALIZE_PAUSER_ABI, data: reinitCalldata });
+    const actualPauser = getAddress(decoded.args[0]);
+    if (actualPauser.toLowerCase() !== expectedPauser.toLowerCase()) {
+      throw new Error(`decoded pauser ${actualPauser} != expected ${expectedPauser}`);
+    }
+    console.log(`Pauser calldata:  reinitializePauser(${actualPauser}) OK matches EXPECTED_PAUSER_ADDRESS`);
+  } catch (err) {
+    throw new Error(
+      `EXPECTED_PAUSER_ADDRESS set, but REINIT_CALLDATA is not exact ` +
+        `reinitializePauser(address) calldata for that Safe. Underlying: ${(err as Error).message}`
+    );
+  }
 }
 
 async function main(): Promise<void> {
@@ -200,6 +237,7 @@ async function main(): Promise<void> {
     reinitCalldata = "0x";
     console.log(`Reinit calldata:  0x (no reinitializer call — equivalent to upgradeTo)`);
   }
+  assertExpectedPauser(reinitCalldata, process.env["EXPECTED_PAUSER_ADDRESS"]);
 
   // Upgrade-candidate preflight. Reject the schedule if the new implementation
   // address is not a deployed contract, lacks the ERC-1822 `proxiableUUID()`
@@ -352,6 +390,47 @@ async function main(): Promise<void> {
     console.log(`Reinit calldata:  ${reinitCalldata}`);
     console.log(`Upgrade calldata: ${upgradeCalldata}`);
     console.log(`Schedule calldata: ${scheduleCalldata}`);
+    const { writeFileSync, mkdirSync, existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const opsDir = join(process.cwd(), "ops");
+    if (!existsSync(opsDir)) mkdirSync(opsDir, { recursive: true });
+    const shortOpId = (opId as string).slice(2, 10);
+    const targetChainName = process.env["TARGET_CHAIN"] ?? "bsc";
+    const schedulePath = join(opsDir, `upgrade-schedule-${targetChainName}-${shortOpId}.json`);
+    writeFileSync(schedulePath, `${JSON.stringify({
+      chain: targetChainName,
+      chainId,
+      proxyAddress: proxyAddr,
+      timelockAddress: timelockAddr,
+      newImplAddress: newImplAddr,
+      upgradeCalldata,
+      reinitCalldata,
+      predecessor,
+      saltLabel,
+      salt,
+      operationId: opId,
+      delaySeconds: Number(delay),
+      scheduledAtUnix: null,
+      readyAtUnix: null,
+      scheduleTxHash: null,
+      scheduleBlock: null,
+      safeAddress,
+      safeTxHash,
+      safeTx: {
+        to: safeTx.to,
+        value: safeTx.value.toString(),
+        data: safeTx.data,
+        operation: safeTx.operation,
+        safeTxGas: safeTx.safeTxGas.toString(),
+        baseGas: safeTx.baseGas.toString(),
+        gasPrice: safeTx.gasPrice.toString(),
+        gasToken: safeTx.gasToken,
+        refundReceiver: safeTx.refundReceiver,
+        nonce: safeTx.nonce.toString()
+      },
+      productionMode
+    }, null, 2)}\n`);
+    console.log(`Schedule artefact: ${schedulePath}`);
     console.log(`\nNext steps:`);
     console.log(`  1. https://app.safe.global/transactions/queue?safe=<chain>:${safeAddress}`);
     console.log(`  2. New tx → Contract interaction → target ${timelockAddr}`);

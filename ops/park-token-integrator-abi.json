@@ -1,15 +1,16 @@
 {
-  "generatedAt": "2026-05-22T01:49:34.616Z",
+  "generatedAt": "2026-06-21T20:50:46.717Z",
   "generatedBy": "scripts/ops/build-integrator-abi.mjs",
-  "sourceArtifact": "artifacts/contracts/ParkToken.sol/ParkToken.json",
+  "sourceArtifact": "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json",
   "description": "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI).",
-  "contract": "ParkToken (ERC-20 + ERC-2612 + capped + UUPS)",
+  "contract": "ParkTokenV1_2 (ERC-20 + ERC-2612 + capped + burnable + pausable + UUPS)",
   "notes": {
     "decimals": "6 - non-standard! Most ERC-20s use 18. Integrators reading raw amounts MUST scale by 10^6, not 10^18.",
     "permit": "Standard EIP-2612. nonces() increments per holder per successful permit. Same-chain replay impossible (per-owner nonce); cross-chain replay impossible (DOMAIN_SEPARATOR includes block.chainid). Permit-grief (a third party calling permit on a holder's signed payload to grief allowance) is the standard ERC-2612 footgun; integrators relying on permit should treat it as 'replaces approve' not 'in addition to approve'.",
-    "cap": "Returned as a pure constant in v1.0.x. Holder burns reduce totalSupply but DEFAULT_ADMIN_ROLE can re-mint via mint() up to cap. Treat PARK as 'capped with admin reissuance', NOT 'fixed supply'.",
     "upgradeability": "UUPS proxy. Implementation address and ABI may change via Timelock-mediated upgrade. Re-fetch ABI from explorer or this file after every Upgraded(address) event.",
-    "deadlineStrategy": "permit deadlines: use short windows (5-15 min). The signature can be replayed within the deadline by anyone (not against the same allowance, but as a separate confirmation tx); pick the shortest window that survives RPC + mempool latency."
+    "deadlineStrategy": "permit deadlines: use short windows (5-15 min). The signature can be replayed within the deadline by anyone (not against the same allowance, but as a separate confirmation tx); pick the shortest window that survives RPC + mempool latency.",
+    "supply": "v1.1 removes mint(). Holder burns reduce totalSupply and no role can re-issue burned supply after v1.1.",
+    "pause": "v1.2 adds global pause/unpause under PAUSER_ROLE only. There is no freeze/blocklist/wipe/admin force-burn surface."
   },
   "abi": [
     {
@@ -101,11 +102,6 @@
         }
       ],
       "name": "AdminDelayTooShort",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "CannotMintToSelf",
       "type": "error"
     },
     {
@@ -446,11 +442,6 @@
     {
       "inputs": [],
       "name": "ZeroInitialHolder",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "ZeroMintAmount",
       "type": "error"
     },
     {
@@ -950,6 +941,45 @@
       ],
       "stateMutability": "nonpayable",
       "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
     }
   ]
 }

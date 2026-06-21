@@ -123,14 +123,18 @@ the explorer is the only thing that needs re-pointing.
 `AccessControlDefaultAdminRules.renounceRole` (which routes through the
 two-step transfer flow with the configured `defaultAdminDelay`). The
 `ParkToken._guard` overrides only block `TIMELOCK_ADMIN_ROLE` renounce.
-Renouncing `DEFAULT_ADMIN_ROLE` permanently disables `mint()`,
-`setContractURI()`, role-administration of `RESCUER_ROLE`, and any
-future admin-gated function — the role becomes ungrantable.
+Renouncing `DEFAULT_ADMIN_ROLE` permanently disables `setContractURI()`,
+role-administration of `RESCUER_ROLE`, after v1.2 role-administration of
+`PAUSER_ROLE`, and any future admin-gated function — the role becomes
+ungrantable. Since the production v1.1 implementation removes `mint()`,
+default-admin renounce is no longer the control used to prove no
+burn-and-reissue path.
 
 **Why we accept this:** the two-step transfer flow + `defaultAdminDelay`
 (>= 24 h on-chain bound) gives a safety window. Removing the renounce
 path entirely would also remove the legitimate "freeze admin" use case
-(e.g. credibly committing to no further mints post-distribution).
+(e.g. credibly committing to no further metadata/role administration
+after launch).
 
 **Operator action:**
 - Treat `DefaultAdminTransferScheduled` to `0x0` (the renounce signal)

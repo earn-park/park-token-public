@@ -18,6 +18,9 @@
 //   EXPECTED_OPERATION_ID     — bytes32; if set, must match recomputed id
 //   EXPECTED_OLD_IMPL         — address; ERC-1967 slot pre-upgrade
 //   EXPECTED_NEW_IMPL_VERSION — string; implVersion() post-upgrade
+//   EXPECTED_PAUSER_ADDRESS   — address; requires exact
+//                               reinitializePauser(address) calldata and
+//                               verifies PAUSER_ROLE post-upgrade.
 //   PRODUCTION_MODE           — "true" enforces the documented production
 //                               Timelock floor (>=21600s); aborts otherwise.
 //   LEDGER_PATH               — where to append the execute receipt;
@@ -29,7 +32,9 @@ import {join} from "node:path";
 import {
   createPublicClient,
   createWalletClient,
+  decodeFunctionData,
   encodeFunctionData,
+  getAddress,
   http,
   keccak256,
   stringToBytes,
@@ -62,6 +67,8 @@ const TIMELOCK_ABI = [
 const PROXY_ABI = [
   {type: "function", name: "implVersion", stateMutability: "pure", inputs: [], outputs: [{type: "string"}]},
   {type: "function", name: "DOMAIN_SEPARATOR", stateMutability: "view", inputs: [], outputs: [{type: "bytes32"}]},
+  {type: "function", name: "hasRole", stateMutability: "view",
+   inputs: [{name: "role", type: "bytes32"}, {name: "account", type: "address"}], outputs: [{type: "bool"}]},
   {type: "event", name: "Upgraded", anonymous: false,
    inputs: [{indexed: true, name: "implementation", type: "address"}]}
 ] as const;
@@ -73,11 +80,45 @@ const UPGRADE_ABI = [
 
 const ERC1967_IMPL_SLOT =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
+const PAUSER_ROLE =
+  "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a" as Hex;
+
+const REINITIALIZE_PAUSER_ABI = [
+  {type: "function", name: "reinitializePauser", stateMutability: "nonpayable",
+   inputs: [{name: "pauser", type: "address"}], outputs: []}
+] as const;
 
 function require_(name: string): string {
   const v = process.env[name];
   if (v === undefined || v.trim() === "") throw new Error(`Missing env: ${name}`);
   return v.trim();
+}
+
+function validateExpectedPauser(reinitCalldata: Hex, expectedPauserRaw: string | undefined): Address | null {
+  if (expectedPauserRaw === undefined || expectedPauserRaw.trim() === "") return null;
+
+  const expectedPauser = getAddress(expectedPauserRaw);
+  if (reinitCalldata === "0x") {
+    throw new Error(
+      `EXPECTED_PAUSER_ADDRESS=${expectedPauser} requires REINIT_CALLDATA=` +
+        `reinitializePauser(${expectedPauser}); schedule artefact has empty 0x.`
+    );
+  }
+
+  try {
+    const decoded = decodeFunctionData({abi: REINITIALIZE_PAUSER_ABI, data: reinitCalldata});
+    const actualPauser = getAddress(decoded.args[0]);
+    if (actualPauser.toLowerCase() !== expectedPauser.toLowerCase()) {
+      throw new Error(`decoded pauser ${actualPauser} != expected ${expectedPauser}`);
+    }
+    console.log(`  PASS: reinit calldata grants PAUSER_ROLE to ${actualPauser}`);
+    return actualPauser;
+  } catch (err) {
+    throw new Error(
+      `EXPECTED_PAUSER_ADDRESS set, but reinit calldata is not exact ` +
+        `reinitializePauser(address) calldata. Underlying: ${(err as Error).message}`
+    );
+  }
 }
 
 interface ScheduleArtefact {
@@ -155,6 +196,7 @@ async function main(): Promise<void> {
   console.log(`Timelock:        ${sched.timelockAddress}`);
   console.log(`New impl:        ${sched.newImplAddress}`);
   console.log(`Salt label:      ${sched.saltLabel}`);
+  const expectedPauser = validateExpectedPauser(sched.reinitCalldata, process.env["EXPECTED_PAUSER_ADDRESS"]);
 
   // Recompute operation id and cross-check the schedule artefact.
   const recomputedOpId = (await publicClient.readContract({
@@ -270,6 +312,20 @@ async function main(): Promise<void> {
     console.log(`  INFO: DOMAIN_SEPARATOR unavailable on new impl`);
   }
 
+  let expectedPauserHasRole: boolean | null = null;
+  if (expectedPauser !== null) {
+    expectedPauserHasRole = (await publicClient.readContract({
+      address: sched.proxyAddress,
+      abi: PROXY_ABI,
+      functionName: "hasRole",
+      args: [PAUSER_ROLE, expectedPauser]
+    })) as boolean;
+    if (!expectedPauserHasRole) {
+      throw new Error(`EXPECTED_PAUSER_ADDRESS ${expectedPauser} does not hold PAUSER_ROLE post-upgrade`);
+    }
+    console.log(`  PASS: EXPECTED_PAUSER_ADDRESS holds PAUSER_ROLE`);
+  }
+
   // Append to durable ledger.
   const ledgerPath = process.env["LEDGER_PATH"] ??
     join(process.cwd(), `ops/upgrade-ledger-${targetChain}.json`);
@@ -295,7 +351,8 @@ async function main(): Promise<void> {
       erc1967ImplSlot: newImplLive,
       implVersion: liveImplVersion,
       domainSeparator: domainSeparator,
-      timelockMarksDone: isDoneAfter
+      timelockMarksDone: isDoneAfter,
+      expectedPauserHasRole
     }
   });
   writeFileSync(ledgerPath, `${JSON.stringify(existing, null, 2)}\n`);

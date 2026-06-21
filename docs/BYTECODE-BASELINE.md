@@ -36,6 +36,18 @@ between toolchains, so the Foundry and Hardhat hashes diverge intentionally.
 | `ParkTimelockController` (Foundry) | foundry 1.5.1-stable | `0x3a0c9bd34c5788ccb1cf6d0bc2ba59d5f828ca21a636826199f9508cb08f2f2c` |
 | `ParkTimelockController` (Hardhat) | hardhat 3.4.1 | `0xcb779433afe4d79f0e3482401f327c0546d77efb4deeef00e4bd52b4694f6cb9` |
 
+## Upgrade implementation baselines
+
+`ParkTokenV1_1` and `ParkTokenV1_2` are production upgrade implementations and
+must be baselined before their release packets are submitted. `ParkTokenV1_2`
+is not considered release-ready until this table contains both Foundry and
+Hardhat deployed-bytecode hashes for the exact public source commit.
+
+| Contract | Toolchain | deployedBytecode keccak256 |
+|---|---|---|
+| `ParkTokenV1_2` (Foundry) | foundry 1.5.1-stable | **PENDING — generate from PR #42 public source before deploy** |
+| `ParkTokenV1_2` (Hardhat) | hardhat 3.4.1 | **PENDING — generate from PR #42 public source before deploy** |
+
 If your `forge --version` SHA differs from `b0a9dd9c`, hashes WILL drift — pin
 to the exact toolchain via `foundryup --version b0a9dd9c` for reproducibility.
 `scripts/repro.sh` asserts the SHA before computing hashes; CI does the same.
