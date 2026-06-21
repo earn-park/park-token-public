@@ -9,7 +9,7 @@ against BscScan / Sourcify before integrating.
 |---|---|
 | **PARK Token (proxy)** | [`0xbc6829B26f0Bed03239E016ff11009c188844a8E`](https://bscscan.com/address/0xbc6829B26f0Bed03239E016ff11009c188844a8E) |
 | Implementation (`ParkToken`) | [`0xa3efcaeb1b882a4d874c5003a284967c3405462f`](https://bscscan.com/address/0xa3efcaeb1b882a4d874c5003a284967c3405462f) |
-| Timelock (`ParkTimelockController`, 48h minDelay) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) |
+| Timelock (`ParkTimelockController`, 15m minDelay) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) |
 
 **Token parameters**
 
@@ -32,18 +32,17 @@ against BscScan / Sourcify before integrating.
 | Rescuer | [`0x0574c14AADb0185Afe257B147dD2Ec258D912BB1`](https://bscscan.com/address/0x0574c14AADb0185Afe257B147dD2Ec258D912BB1) | `RESCUER_ROLE` (recover non-PARK ERC-20 / native asset sent by mistake; cannot touch PARK) |
 | Vesting | [`0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5`](https://bscscan.com/address/0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5) | no contract role — operational custody for the vesting layer (Sablier streams + platform distribution); ordinary token holder |
 
-UUPS upgrades are gated by the Timelock (`UPGRADER_ROLE`) with a 48-hour delay;
+UUPS upgrades are gated by the Timelock (`UPGRADER_ROLE`) with a 15-minute delay;
 the Admin Safe proposes and the Guardian Safe can cancel within the window.
 `TIMELOCK_ADMIN_ROLE` is self-administered by the Timelock — `DEFAULT_ADMIN`
 cannot grant itself upgrade authority.
 
 **Governance actions**
 
-- **2026-06-18** *(scheduled — effective after the 48h Timelock delay)* — Timelock
-  `minDelay` reduction from **48h to 15m** (`updateDelay(900)`) initiated via
-  governance. The live `minDelay` stays 48h until the scheduled operation
-  executes; the Timelock row above and this entry will be updated with the
-  effective date and execute tx hash on completion.
+- **2026-06-22** — Timelock `minDelay` **reduced from 48h to 15m** (`updateDelay(900)`),
+  now effective on-chain (`getMinDelay() = 900`). Executed through the Timelock after the
+  governance delay. Execute tx
+  [`0x2007e169…51072`](https://bscscan.com/tx/0x2007e169a850decef7618c9cce3474d83270cd1129d661239336ef4603c51072).
 - **2026-06-15** — Timelock `CANCELLER_ROLE` rotated to the **Guardian Safe** and revoked
   from the Admin Safe, completing the proposer/canceller separation (Guardian is now the
   sole emergency canceller). Execute txs:
