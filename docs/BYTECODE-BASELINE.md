@@ -43,10 +43,17 @@ must be baselined before their release packets are submitted. `ParkTokenV1_2`
 is not considered release-ready until this table contains both Foundry and
 Hardhat deployed-bytecode hashes for the exact public source commit.
 
+> **Status (2026-06-22):** `ParkTokenV1_2` is live on BSC (impl
+> `0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE`, BscScan-verified from public
+> commit `cebe826`). The **Hardhat** hash above is locked (environment-independent).
+> The **Foundry** hash is path-dependent (see the env note above) and must be
+> captured from the canonical CI-Linux `repro.sh` run before the row is asserted
+> green.
+
 | Contract | Toolchain | deployedBytecode keccak256 |
 |---|---|---|
-| `ParkTokenV1_2` (Foundry) | foundry 1.5.1-stable | **PENDING — generate from PR #42 public source before deploy** |
-| `ParkTokenV1_2` (Hardhat) | hardhat 3.4.1 | **PENDING — generate from PR #42 public source before deploy** |
+| `ParkTokenV1_2` (Foundry) | foundry 1.5.1-stable | **PENDING (CI-Linux) — Foundry bakes the absolute source path into the metadata trailer; capture from the `ubuntu-22.04` `repro.sh` run, not a local non-Linux build** |
+| `ParkTokenV1_2` (Hardhat) | hardhat 3.4.1 | `0x0a0f115c17a0c05ed47dd7862544e64e1b9b1b22ba4a6d7edf3a4585f4be8186` |
 
 If your `forge --version` SHA differs from `b0a9dd9c`, hashes WILL drift — pin
 to the exact toolchain via `foundryup --version b0a9dd9c` for reproducibility.
