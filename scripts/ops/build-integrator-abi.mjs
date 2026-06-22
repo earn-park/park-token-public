@@ -15,11 +15,19 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
+// Require the v1.2 artifact (the live implementation). No silent fallback to an
+// older ParkToken artifact — that would regenerate this snapshot without the
+// pause surface (paused / Paused / Unpaused) and publish a stale ABI.
 const sourceArtifact =
   process.env.PARK_TOKEN_ARTIFACT ??
-  (existsSync("artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json")
-    ? "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json"
-    : "artifacts/contracts/ParkToken.sol/ParkToken.json");
+  "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json";
+
+if (!existsSync(sourceArtifact)) {
+  throw new Error(
+    `Artifact not found: ${sourceArtifact}. Run \`npx hardhat compile\` first, ` +
+      `or set PARK_TOKEN_ARTIFACT to the intended version's artifact path.`
+  );
+}
 
 const tokenAbi = JSON.parse(readFileSync(sourceArtifact, "utf-8")).abi;
 
@@ -44,6 +52,19 @@ const sel = tokenAbi.filter(
     (x.type === "event" && wantedEvents.includes(x.name)) ||
     x.type === "error"
 );
+
+// Defend against a stale PARK_TOKEN_ARTIFACT override silently dropping the
+// pause surface from the published snapshot.
+const missingPause = [
+  ...pausableFunctions.filter((n) => !sel.some((x) => x.type === "function" && x.name === n)),
+  ...["Paused", "Unpaused"].filter((n) => !sel.some((x) => x.type === "event" && x.name === n)),
+];
+if (missingPause.length > 0) {
+  throw new Error(
+    `${sourceArtifact} is missing the v1.2 pause surface: ${missingPause.join(", ")}. ` +
+      `Generate from ParkTokenV1_2 or later.`
+  );
+}
 
 const out = {
   generatedAt: new Date().toISOString(),

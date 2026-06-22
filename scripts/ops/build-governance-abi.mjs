@@ -14,13 +14,34 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
+// Require the v1.2 artifact (the live implementation). No silent fallback to an
+// older ParkToken artifact — that would drop the pause / role surface the
+// monitoring snapshot exists to cover.
 const tokenArtifact =
   process.env.PARK_TOKEN_ARTIFACT ??
-  (existsSync("artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json")
-    ? "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json"
-    : "artifacts/contracts/ParkToken.sol/ParkToken.json");
+  "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json";
+
+if (!existsSync(tokenArtifact)) {
+  throw new Error(
+    `Artifact not found: ${tokenArtifact}. Run \`npx hardhat compile\` first, ` +
+      `or set PARK_TOKEN_ARTIFACT to the intended version's artifact path.`
+  );
+}
 
 const tokenAbi = JSON.parse(readFileSync(tokenArtifact, "utf-8")).abi;
+
+// Defend against a stale artifact: the monitoring ABI must carry the v1.2
+// pause / role surface or alerts would silently miss it.
+for (const [kind, name] of [
+  ["event", "Paused"], ["event", "Unpaused"],
+  ["function", "PAUSER_ROLE"], ["function", "paused"],
+]) {
+  if (!tokenAbi.some((x) => x.type === kind && x.name === name)) {
+    throw new Error(
+      `${tokenArtifact} is missing ${kind} ${name} — generate from ParkTokenV1_2 or later.`
+    );
+  }
+}
 const tlAbi = JSON.parse(
   readFileSync(
     "artifacts/contracts/imports/TimelockControllerImport.sol/ParkTimelockController.json",
