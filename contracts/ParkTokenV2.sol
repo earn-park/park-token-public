@@ -5,9 +5,9 @@ import {ParkTokenV1_2} from "./ParkTokenV1_2.sol";
 
 /// @title ParkTokenV2
 /// @notice PARK — **terminal** implementation. Permanently renounces UUPS
-///         upgradeability: both the public `upgradeToAndCall` entrypoint and the
-///         internal `_authorizeUpgrade` hook revert, so no implementation can
-///         ever replace this one. The full v1.2 surface is retained — no
+///         upgradeability: the public `upgradeToAndCall` entrypoint reverts, so
+///         no implementation can ever replace this one. The full v1.2 surface is
+///         retained — no
 ///         `mint` (removed in v1.1), `pause` / `unpause` under `PAUSER_ROLE`,
 ///         `burn` / `burnFrom`, ERC-2612 `permit`, foreign-asset rescue, and
 ///         `contractURI` metadata.
