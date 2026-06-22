@@ -53,9 +53,13 @@ cannot grant itself upgrade authority.
   Treasury, Rescuer, and Vesting are 3/5** on BSC, and the **Admin Safe is also 3/5** on
   Arbitrum and Ethereum (same address). The Guardian Safe's multisig is being finalised.
   Co-signer addresses are managed internally.
+- **2026-06-22** — Timelock `minDelay` reduced **48h → 15m** (`updateDelay(900)`)
+  for the MEXC remediation window. Execute tx
+  [`0x2007e169…51072`](https://bscscan.com/tx/0x2007e169a850decef7618c9cce3474d83270cd1129d661239336ef4603c51072).
 - **2026-06-22** — Stage 1 MEXC upgrade executed: proxy implementation moved to
   `ParkTokenV1_1` at `0x885C40D264B31487d56d5391b74BCced48a9ba0A`; `mint()` is
-  absent and supply is strictly non-increasing after genesis.
+  absent and supply is strictly non-increasing after genesis. Execute tx
+  [`0x5810191a…a1c9`](https://bscscan.com/tx/0x5810191af17eed2592181b95d1a0136df40b349750ead19a06940a4dd503a1c9).
 
 ## Audit
 
