@@ -1,7 +1,7 @@
-// One-shot helper: deploy a new ParkToken implementation only
+// One-shot helper: deploy a new ParkToken upgrade implementation only
 // (no proxy step — proxy will adopt this impl via Timelock-gated upgrade).
 //
-// Usage: npx hardhat run scripts/ops/deploy-base-upgrade-impl.ts --network bsc
+// Usage: CONTRACT=ParkTokenV1_2 npx hardhat run scripts/ops/deploy-base-upgrade-impl.ts --network bsc
 //
 // Uses ethers via Hardhat runtime for the factory deploy. The proxy-side
 // upgrade flow goes through the Timelock — see scripts/ops/schedule-upgrade.ts.
@@ -21,7 +21,10 @@ async function main(): Promise<void> {
   console.log(`Deployer: ${deployer.address}`);
   console.log(`Network:  ${connection.networkName} (chainId=${Number(net.chainId)})`);
 
-  const Factory = await ethers.getContractFactory("ParkToken");
+  const contractName = process.env["CONTRACT"]?.trim() || "ParkTokenV1_2";
+  console.log(`Contract: ${contractName}`);
+
+  const Factory = await ethers.getContractFactory(contractName);
   const impl = await Factory.deploy();
   await impl.waitForDeployment();
   const implAddr = await impl.getAddress();

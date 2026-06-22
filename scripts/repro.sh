@@ -38,7 +38,7 @@ echo ""
 
 echo "=== Computing bytecode hashes (Foundry + Hardhat) ==="
 node --import tsx <<'NODE'
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { keccak256 } from "viem";
 
 const targets = [
@@ -58,6 +58,17 @@ const targets = [
     hardhat: "artifacts/contracts/imports/TimelockControllerImport.sol/ParkTimelockController.json",
   },
 ];
+
+if (
+  existsSync("out/ParkTokenV1_2.sol/ParkTokenV1_2.json") ||
+  existsSync("artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json")
+) {
+  targets.push({
+    name: "ParkTokenV1_2",
+    foundry: "out/ParkTokenV1_2.sol/ParkTokenV1_2.json",
+    hardhat: "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json",
+  });
+}
 
 const computed = {};
 for (const { name, foundry, hardhat } of targets) {
@@ -91,9 +102,14 @@ for entry in \
   "ParkERC1967Proxy:foundry" \
   "ParkERC1967Proxy:hardhat" \
   "ParkTimelockController:foundry" \
-  "ParkTimelockController:hardhat"; do
+  "ParkTimelockController:hardhat" \
+  "ParkTokenV1_2:foundry" \
+  "ParkTokenV1_2:hardhat"; do
   name=${entry%:*}
   family=${entry#*:}
+  if ! node -e "const h=require('/tmp/repro-hashes.json'); process.exit(h['$name'] ? 0 : 1)"; then
+    continue
+  fi
   # Capitalise without bash 4+ or GNU sed (macOS portability).
   case "$family" in
     foundry) family_cap=Foundry ;;

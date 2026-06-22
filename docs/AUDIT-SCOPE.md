@@ -5,6 +5,8 @@
 | File | Purpose |
 |---|---|
 | `contracts/ParkToken.sol` | Main token contract — full audit |
+| `contracts/ParkTokenV1_1.sol` | Stage 1 MEXC upgrade — removes `mint()` while preserving storage and UUPS |
+| `contracts/ParkTokenV1_2.sol` | Stage 2 MEXC upgrade — adds `PAUSER_ROLE` + `pause`/`unpause` only; no mint/freeze/blocklist/wipe |
 | `contracts/imports/TimelockControllerImport.sol` | Wrapper around OZ TimelockController v5.6.1 (thin subclass with no added logic — forwards constructor args verbatim) |
 | `contracts/imports/ERC1967ProxyImport.sol` | Wrapper around OZ ERC1967Proxy v5.6.1 (thin subclass with no added logic — forwards constructor args verbatim) |
 | `scripts/deploy/base/deploy-bsc.ts` | Deploy pipeline — operational review (correctness of post-deploy assertions, no role-leak) |
@@ -59,8 +61,10 @@ For audit purposes, **both Foundry and Hardhat artifact families are
 baselined** in `docs/BYTECODE-BASELINE.md`. Same Solidity source produces
 divergent metadata bytes between toolchains (compiler-injected metadata
 hash differs), so the file lists six rows — Foundry + Hardhat for each of
-`ParkToken`, `ParkERC1967Proxy`, `ParkTimelockController`. `scripts/repro.sh`
-asserts every row and exits non-zero on any drift.
+`ParkToken`, `ParkERC1967Proxy`, `ParkTimelockController`, and every production
+upgrade implementation such as `ParkTokenV1_1` / `ParkTokenV1_2`.
+`scripts/repro.sh` asserts every row and exits non-zero on any drift. Do not
+submit a V1.2 exchange/audit packet until `ParkTokenV1_2` rows are present.
 
 ## Compiler invariants
 
@@ -107,3 +111,8 @@ Areas where we consider audit attention most valuable:
 6. **ERC-7201 namespace + `cap()` pure override** — H-1 in `docs/UPGRADE-HAZARDS.md` describes
    the carry-forward obligation. Verify a future implementation that drops the `pure` override
    does not silently corrupt cap reads.
+
+7. **V1.2 pauser reinitializer** — verify `reinitializePauser(address)` is
+   callable only through Timelock/`UPGRADER_ROLE`, rejects zero address,
+   grants exactly one approved pauser Safe, and cannot be claimed by an
+   arbitrary caller after an empty-data upgrade.

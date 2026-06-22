@@ -39,10 +39,12 @@ rather than change the design.
   `DEFAULT_ADMIN_ROLE` **cannot** grant itself upgrade authority and bypass the
   Timelock — the strongest explicit guarantee in the role lattice
   (`docs/TOKEN-SPEC.md` role table + lattice).
-- **Cap is immutable within this implementation.** `cap()` is a `pure` override
-  returning the `INITIAL_SUPPLY` constant (`contracts/ParkToken.sol`).
-  `DEFAULT_ADMIN` can re-mint burned supply up to the cap via `mint()` but can
-  never exceed it. The cap can change **only** through a Timelock-gated UUPS
+- **Cap is immutable within the audited base implementation.** `cap()` is a
+  `pure` override returning the `INITIAL_SUPPLY` constant
+  (`contracts/ParkToken.sol`). The original v1.0 implementation exposed
+  admin-gated `mint(to, amount)` up to that cap; the MEXC Stage 1 production
+  upgrade (v1.1) removes the selector, so burned PARK is no longer
+  re-issuable. The cap can change **only** through a Timelock-gated UUPS
   upgrade that ships a different implementation — not a silent admin action
   (see `docs/UPGRADE-HAZARDS.md` H-1).
 - **Renounce / self-revoke guards.** `renounceRole` is blocked outright for
@@ -64,10 +66,12 @@ combination) directly.
 
 ### On the "permanent renounce" recommendation
 
-We reject blanket renounce of `DEFAULT_ADMIN_ROLE` as a default remedy: it would
-permanently disable `mint()` (burn-and-reissue up to cap), `setContractURI()`
-(metadata updates), and administration / rotation of `RESCUER_ROLE`. However,
-the renounce path **is** intentionally left open (`docs/UPGRADE-HAZARDS.md` H-6):
+We reject blanket renounce of `DEFAULT_ADMIN_ROLE` as a default remedy: after
+v1.1 it would disable `setContractURI()` (metadata updates), administration /
+rotation of `RESCUER_ROLE`, and after v1.2 administration / rotation of
+`PAUSER_ROLE`; it is no longer needed to remove mint authority because
+`mint()` is absent from the implementation. However, the renounce path **is**
+intentionally left open (`docs/UPGRADE-HAZARDS.md` H-6):
 `DEFAULT_ADMIN_ROLE` renounce routes through OpenZeppelin
 `AccessControlDefaultAdminRules` — a two-step transfer with the configured
 `defaultAdminDelay` (≥ 24 h on-chain bound) — so a project that later wants to
@@ -93,7 +97,7 @@ target.
 |---|---|---|---|
 | EAA-02 | Medium | **Resolved**, defence in depth: (1) on-chain — `ParkERC1967Proxy` constructor reverts `UnexpectedInitSelector` unless the init calldata invokes `ParkToken.initialize`; (2) off-chain — post-deploy assertion that `initialize()` is consumed (reverts `InvalidInitialization()`) | `contracts/imports/ERC1967ProxyImport.sol`, `scripts/deploy/base/deploy-bsc.ts` (`runPostDeployAssertions`) |
 | EAA-03 | Minor | Documented: pairwise distinctness is deploy-time hygiene, not a runtime invariant; `RESCUER_ROLE` admin is `DEFAULT_ADMIN_ROLE` by design for key rotation | `contracts/ParkToken.sol` (`_validateInitConfig` NatSpec) |
-| EAA-04 | Minor | `mint()` reverts `ERC20ExceededCap(amount, cap)` — well-defined payload for all uint256 inputs (no overflow wrap); selector unchanged | `contracts/ParkToken.sol` (`mint`) |
+| EAA-04 | Minor | In audited v1.0, `mint()` reverts `ERC20ExceededCap(amount, cap)` — well-defined payload for all uint256 inputs (no overflow wrap). In production v1.1+, the MEXC path removes `mint()` entirely. | `contracts/ParkToken.sol` (`mint`), `contracts/ParkTokenV1_1.sol` |
 | EAA-05 | Informational | Documented: the `upgrader.code.length` check is a coarse not-EOA guard; full Timelock topology is verified off-chain by `runPostDeployAssertions` | `contracts/ParkToken.sol` (`_validateInitConfig` NatSpec) |
 | EAA-06 | Informational | `ContractURIUpdated(string previousURI, string newURI, address indexed operator)` — adds previous URI + operator | `contracts/ParkToken.sol` (event + emit sites) |
 | EAA-07 | Informational | Cap-storage ERC-7201 regression tests added + mandated for every successor impl | `test/ParkToken.t.sol`, `docs/UPGRADE-HAZARDS.md` H-1 |

@@ -31,14 +31,15 @@ whitepaper, tokenomics, and live market data live at:
 - **Whitepaper abstract:** https://docs.earnpark.com/token-whitepaper/abstract
 - **Token specification:** https://docs.earnpark.com/token-whitepaper/park-token
 - **Market data:** https://www.coingecko.com/en/coins/park
-The contract is a **capped-supply** ERC-20 (1 B PARK hard cap, 6 decimals) with
-**admin reissuance up to the cap**: holder burns reduce `totalSupply()` and
-create headroom that `DEFAULT_ADMIN_ROLE` can mint back via `mint()`. The cap
-itself is immutable (returned by a `pure` override). Other surface: UUPS
-upgradeability under Safe + Timelock governance, USDC-style stuck-token
-rescue, ERC-2612 gasless approvals, and the hard cap enforced at the
-`_update` level. See `docs/TOKEN-SPEC.md` for the full surface and
-`docs/UPGRADE-HAZARDS.md` for the cap-storage upgrade contract.
+The contract is a **capped-supply** ERC-20 (1 B PARK hard cap, 6 decimals).
+The live v1.1 upgrade removes `mint()` entirely: holder burns reduce
+`totalSupply()` and no role can re-issue burned supply. The v1.2 upgrade path
+adds only emergency `pause()` / `unpause()` under `PAUSER_ROLE`; it does not add
+mint, freeze/blocklist, wipe, or admin force-burn. Other surface: UUPS
+upgradeability under Safe + Timelock governance, USDC-style stuck-token rescue,
+ERC-2612 gasless approvals, and the hard cap enforced at the `_update` level.
+See `docs/TOKEN-SPEC.md` for the full surface and `docs/UPGRADE-HAZARDS.md` for
+the cap-storage upgrade contract.
 
 ## Contract
 
@@ -46,7 +47,10 @@ rescue, ERC-2612 gasless approvals, and the hard cap enforced at the
 - **Standards:** ERC-20, ERC-2612 Permit, ERC-1967 UUPS proxy, ERC-7201 namespaced storage
 - **OpenZeppelin v5.6.1** (capped, burnable, permit, access-control with default-admin-rules)
 
-PARK Token uses four AccessControl roles: `DEFAULT_ADMIN_ROLE` (held by Safe), `UPGRADER_ROLE` (held by Timelock), `RESCUER_ROLE` (held by a dedicated rescuer EOA), and `TIMELOCK_ADMIN_ROLE` (held by Timelock; the only role that can grant/revoke `UPGRADER_ROLE`).
+PARK Token uses AccessControl roles for admin, upgrade, rescue, and v1.2 pause:
+`DEFAULT_ADMIN_ROLE` (Safe), `UPGRADER_ROLE` (Timelock), `RESCUER_ROLE`
+(dedicated Safe/operator), `TIMELOCK_ADMIN_ROLE` (Timelock; admin of
+`UPGRADER_ROLE`), and `PAUSER_ROLE` after v1.2.
 
 ## Quick start
 

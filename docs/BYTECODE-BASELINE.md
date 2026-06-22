@@ -36,6 +36,25 @@ between toolchains, so the Foundry and Hardhat hashes diverge intentionally.
 | `ParkTimelockController` (Foundry) | foundry 1.5.1-stable | `0x3a0c9bd34c5788ccb1cf6d0bc2ba59d5f828ca21a636826199f9508cb08f2f2c` |
 | `ParkTimelockController` (Hardhat) | hardhat 3.4.1 | `0xcb779433afe4d79f0e3482401f327c0546d77efb4deeef00e4bd52b4694f6cb9` |
 
+## Upgrade implementation baselines
+
+`ParkTokenV1_1` and `ParkTokenV1_2` are production upgrade implementations and
+must be baselined before their release packets are submitted. `ParkTokenV1_2`
+is not considered release-ready until this table contains both Foundry and
+Hardhat deployed-bytecode hashes for the exact public source commit.
+
+> **Status (2026-06-22):** `ParkTokenV1_2` is live on BSC (impl
+> `0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE`, BscScan-verified from public
+> commit `cebe826`). The **Hardhat** hash above is locked (environment-independent).
+> The **Foundry** hash is path-dependent (see the env note above) and must be
+> captured from the canonical CI-Linux `repro.sh` run before the row is asserted
+> green.
+
+| Contract | Toolchain | deployedBytecode keccak256 |
+|---|---|---|
+| `ParkTokenV1_2` (Foundry) | foundry 1.5.1-stable | **PENDING (CI-Linux) — Foundry bakes the absolute source path into the metadata trailer; capture from the `ubuntu-22.04` `repro.sh` run, not a local non-Linux build** |
+| `ParkTokenV1_2` (Hardhat) | hardhat 3.4.1 | `0x0a0f115c17a0c05ed47dd7862544e64e1b9b1b22ba4a6d7edf3a4585f4be8186` |
+
 If your `forge --version` SHA differs from `b0a9dd9c`, hashes WILL drift — pin
 to the exact toolchain via `foundryup --version b0a9dd9c` for reproducibility.
 `scripts/repro.sh` asserts the SHA before computing hashes; CI does the same.

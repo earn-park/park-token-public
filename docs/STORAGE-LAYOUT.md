@@ -35,6 +35,7 @@ Verified by the regression test `test_metadataNamespaceSlot_matchesERC7201` in
 | `openzeppelin.storage.AccessControlDefaultAdminRules` | `AccessControlDefaultAdminRulesUpgradeable` |
 | `openzeppelin.storage.EIP712` | `EIP712Upgradeable` |
 | `openzeppelin.storage.Nonces` | `NoncesUpgradeable` |
+| `openzeppelin.storage.Pausable` | `PausableUpgradeable` (added in `ParkTokenV1_2`) |
 
 None of these overlap with the `earnpark.storage.*` namespace.
 
@@ -53,3 +54,7 @@ None of these overlap with the `earnpark.storage.*` namespace.
 - Adding any new namespaced struct in a future implementation requires computing a fresh
   slot and asserting it does not collide with any slot above. See `docs/UPGRADE-HAZARDS.md`
   H-4.
+
+- `ParkTokenV1_2` adds no project-owned storage variables. Its paused flag lives in
+  OpenZeppelin's ERC-7201 `openzeppelin.storage.Pausable` namespace and defaults to
+  `false` on upgrade.

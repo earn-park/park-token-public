@@ -13,11 +13,23 @@
 // Keeps generator provenance reproducible (committing the snapshot alone
 // leaves reviewers guessing how it was produced).
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-const tokenAbi = JSON.parse(
-  readFileSync("artifacts/contracts/ParkToken.sol/ParkToken.json", "utf-8")
-).abi;
+// Require the v1.2 artifact (the live implementation). No silent fallback to an
+// older ParkToken artifact — that would regenerate this snapshot without the
+// pause surface (paused / Paused / Unpaused) and publish a stale ABI.
+const sourceArtifact =
+  process.env.PARK_TOKEN_ARTIFACT ??
+  "artifacts/contracts/ParkTokenV1_2.sol/ParkTokenV1_2.json";
+
+if (!existsSync(sourceArtifact)) {
+  throw new Error(
+    `Artifact not found: ${sourceArtifact}. Run \`npx hardhat compile\` first, ` +
+      `or set PARK_TOKEN_ARTIFACT to the intended version's artifact path.`
+  );
+}
+
+const tokenAbi = JSON.parse(readFileSync(sourceArtifact, "utf-8")).abi;
 
 const erc20Functions = [
   "name", "symbol", "decimals", "totalSupply",
@@ -25,12 +37,13 @@ const erc20Functions = [
 ];
 const permitFunctions = ["DOMAIN_SEPARATOR", "nonces", "permit", "eip712Domain"];
 const burnableFunctions = ["burn", "burnFrom"];
+const pausableFunctions = ["paused"];
 const introspection = ["cap", "implVersion", "contractURI", "supportsInterface"];
 const erc20Events = ["Transfer", "Approval"];
 const permitEvents = ["EIP712DomainChanged"];
-const otherEvents = ["ContractURIUpdated", "Upgraded"];
+const otherEvents = ["ContractURIUpdated", "Upgraded", "Paused", "Unpaused"];
 
-const wantedFns = [...erc20Functions, ...permitFunctions, ...burnableFunctions, ...introspection];
+const wantedFns = [...erc20Functions, ...permitFunctions, ...burnableFunctions, ...pausableFunctions, ...introspection];
 const wantedEvents = [...erc20Events, ...permitEvents, ...otherEvents];
 
 const sel = tokenAbi.filter(
@@ -40,10 +53,23 @@ const sel = tokenAbi.filter(
     x.type === "error"
 );
 
+// Defend against a stale PARK_TOKEN_ARTIFACT override silently dropping the
+// pause surface from the published snapshot.
+const missingPause = [
+  ...pausableFunctions.filter((n) => !sel.some((x) => x.type === "function" && x.name === n)),
+  ...["Paused", "Unpaused"].filter((n) => !sel.some((x) => x.type === "event" && x.name === n)),
+];
+if (missingPause.length > 0) {
+  throw new Error(
+    `${sourceArtifact} is missing the v1.2 pause surface: ${missingPause.join(", ")}. ` +
+      `Generate from ParkTokenV1_2 or later.`
+  );
+}
+
 const out = {
   generatedAt: new Date().toISOString(),
   generatedBy: "scripts/ops/build-integrator-abi.mjs",
-  sourceArtifact: "artifacts/contracts/ParkToken.sol/ParkToken.json",
+  sourceArtifact,
   description:
     "Integrator ABI for PARK Token. Includes the full ERC-20 + ERC-2612 (permit) surface plus read-only governance/cap views — what wallets, DEXes, indexers, and oracles need to integrate. Distinct from ops/210-base-abi.json (deploy-time ABI subset) and ops/park-token-governance-abi.json (operator monitoring ABI).",
   contract: "ParkToken (ERC-20 + ERC-2612 + capped + UUPS)",
@@ -52,8 +78,10 @@ const out = {
       "6 - non-standard! Most ERC-20s use 18. Integrators reading raw amounts MUST scale by 10^6, not 10^18.",
     permit:
       "Standard EIP-2612. nonces() increments per holder per successful permit. Same-chain replay impossible (per-owner nonce); cross-chain replay impossible (DOMAIN_SEPARATOR includes block.chainid). Permit-grief (a third party calling permit on a holder's signed payload to grief allowance) is the standard ERC-2612 footgun; integrators relying on permit should treat it as 'replaces approve' not 'in addition to approve'.",
-    cap:
-      "Returned as a pure constant in v1.0.x. Holder burns reduce totalSupply but DEFAULT_ADMIN_ROLE can re-mint via mint() up to cap. Treat PARK as 'capped with admin reissuance', NOT 'fixed supply'.",
+    supply:
+      "v1.1 removes mint(). Holder burns reduce totalSupply and no role can re-issue burned supply after v1.1.",
+    pause:
+      "v1.2 adds global pause/unpause under PAUSER_ROLE only. There is no freeze/blocklist/wipe/admin force-burn surface.",
     upgradeability:
       "UUPS proxy. Implementation address and ABI may change via Timelock-mediated upgrade. Re-fetch ABI from explorer or this file after every Upgraded(address) event.",
     deadlineStrategy:

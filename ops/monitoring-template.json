@@ -17,6 +17,7 @@
     "DEFAULT_ADMIN_ROLE": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "UPGRADER_ROLE":      "0x189ab7a9244df0848122154315af71fe140f3db0fe014031783b0946b8c9d2e3",
     "RESCUER_ROLE":       "0xcf6f9f892731e14b8859835f2ff35575f447fb501f46243c4eb8bac19e31a050",
+    "PAUSER_ROLE":        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
     "TIMELOCK_ADMIN_ROLE":"0x5f58e3a2316349923ce3780f8d587db2d72378aed66a8261c916544fa6846ca5",
     "PROPOSER_ROLE":      "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
     "EXECUTOR_ROLE":      "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
@@ -25,7 +26,10 @@
   "_function_selectors": {
     "_doc": "Used by pre-execute Timelock proposal decoders. selector = keccak256(signature)[0:4].",
     "Timelock.updateDelay(uint256)": "0x64d62353",
-    "ParkToken.upgradeToAndCall(address,bytes)": "0x4f1ef286"
+    "ParkToken.upgradeToAndCall(address,bytes)": "0x4f1ef286",
+    "ParkToken.reinitializePauser(address)": "0xddbcbd49",
+    "ParkToken.pause()": "0x8456cb59",
+    "ParkToken.unpause()": "0x3f4ba83a"
   },
   "alerts": [
     {
@@ -93,6 +97,54 @@
       "runbookUrl": "docs/UPGRADE-HAZARDS.md#h-8-upgrader_role-self-revoke-is-recoverable-but-liveness-impacting"
     },
     {
+      "id": "ROLE-GRANT-PAUSER",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RoleGranted(bytes32 role, address account, address sender)",
+        "filter": "role == 0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a"
+      },
+      "rationale": "PAUSER_ROLE can halt transfers/burns globally after v1.2. Confirm account matches the approved emergency Safe and sender is the Timelock during reinitializePauser or DEFAULT_ADMIN during rotation.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "runbooks/340-stage2-pausable-upgrade.md",
+      "responseSLA": "5min ack / immediate validation"
+    },
+    {
+      "id": "ROLE-REVOKE-PAUSER",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "RoleRevoked(bytes32 role, address account, address sender)",
+        "filter": "role == 0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a"
+      },
+      "rationale": "Loss of PAUSER_ROLE may remove emergency stop capability. Confirm the revocation is part of a planned pauser rotation and a replacement holder exists.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "runbooks/340-stage2-pausable-upgrade.md"
+    },
+    {
+      "id": "TOKEN-PAUSED",
+      "severity": "CRITICAL",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "Paused(address account)"
+      },
+      "rationale": "Token transfers and burns are globally halted. Confirm incident ticket, pauser Safe approvals, and expected unpause criteria.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "runbooks/340-stage2-pausable-upgrade.md",
+      "responseSLA": "immediate ack / incident channel open"
+    },
+    {
+      "id": "TOKEN-UNPAUSED",
+      "severity": "HIGH",
+      "trigger": {
+        "address": "${PROXY}",
+        "event": "Unpaused(address account)"
+      },
+      "rationale": "Token transfers and burns resumed. Confirm the unpause is tied to the original pause incident and post-incident checks are complete.",
+      "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"],
+      "runbookUrl": "runbooks/340-stage2-pausable-upgrade.md"
+    },
+    {
       "id": "ROLE-RENOUNCE-DEFAULT-ADMIN",
       "severity": "CRITICAL",
       "trigger": {
@@ -153,7 +205,7 @@
         "event": "Transfer(address indexed from, address indexed to, uint256 value)",
         "filter": "from == 0x0000000000000000000000000000000000000000 && value > 0"
       },
-      "rationale": "Token mint after initial deployment. Should only happen after a holder burn + admin re-mint up to cap. Routine mints during distribution are expected; unexpected mints indicate compromised DEFAULT_ADMIN.",
+      "rationale": "Token mint after initial deployment. Since v1.1, mint is absent and any mint event is unexpected; investigate explorer/proxy ABI mismatch or an unauthorized implementation change.",
       "destination": ["${PAGER_EMAIL}", "${SLACK_HIGH}"]
     },
     {
