@@ -3,13 +3,13 @@
 Canonical production deployment addresses for PARK Token. Verify every address
 against BscScan / Sourcify before integrating.
 
-## BNB Smart Chain (chainId 56) — PRODUCTION v1.1.0
+## BNB Smart Chain (chainId 56) — PRODUCTION v1.2.0
 
 | Component | Address |
 |---|---|
 | **PARK Token (proxy)** | [`0xbc6829B26f0Bed03239E016ff11009c188844a8E`](https://bscscan.com/address/0xbc6829B26f0Bed03239E016ff11009c188844a8E) |
-| Implementation (`ParkTokenV1_1`) | [`0x885C40D264B31487d56d5391b74BCced48a9ba0A`](https://bscscan.com/address/0x885C40D264B31487d56d5391b74BCced48a9ba0A) |
-| Previous implementation (`ParkToken` v1.0.0) | [`0xa3efcaeb1b882a4d874c5003a284967c3405462f`](https://bscscan.com/address/0xa3efcaeb1b882a4d874c5003a284967c3405462f) |
+| Implementation (`ParkTokenV1_2`) | [`0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE`](https://bscscan.com/address/0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE) |
+| Previous implementation (`ParkTokenV1_1` v1.1.0) | [`0x885C40D264B31487d56d5391b74BCced48a9ba0A`](https://bscscan.com/address/0x885C40D264B31487d56d5391b74BCced48a9ba0A) |
 | Timelock (`ParkTimelockController`, 15m minDelay during MEXC upgrade sequence) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) |
 
 **Token parameters**
@@ -19,7 +19,7 @@ against BscScan / Sourcify before integrating.
 | Name / Symbol | PARK Token / PARK |
 | Decimals | **6** (non-standard — scale raw amounts by 10^6, not 10^18) |
 | Total supply / cap | 1,000,000,000 PARK cap; `mint()` removed in v1.1, so supply is strictly non-increasing after genesis |
-| Standard | ERC-20 + ERC-2612 (permit) + capped + burnable + UUPS (ERC-1822) |
+| Standard | ERC-20 + ERC-2612 (permit) + capped + burnable + pausable + UUPS (ERC-1822) |
 | Proxy pattern | ERC-1967 via ZeframLou CREATE3 factory `0x6aA3D87e99286946161dCA02B97C5806fC5eD46F` |
 | Salt | `keccak256("earnpark.parktoken.production.v1.proxy")` = `0x254ebb2bc1f56bd48ad3e36bc84029801f26da7cf0da0862279fa96710ebf884` |
 
@@ -29,7 +29,7 @@ against BscScan / Sourcify before integrating.
 |---|---|---|
 | Admin | [`0xBE26469075864F48806dE7be55Fa12b5f9a00f78`](https://bscscan.com/address/0xBE26469075864F48806dE7be55Fa12b5f9a00f78) | `DEFAULT_ADMIN_ROLE` (metadata, rescuer admin, pauser rotation after v1.2; no mint since v1.1) + Timelock `PROPOSER_ROLE` |
 | Treasury | [`0x92feF557FB7E0DED9F22Fa0B2A41a7D991888042`](https://bscscan.com/address/0x92feF557FB7E0DED9F22Fa0B2A41a7D991888042) | holds the initial 1B PARK supply |
-| Guardian | [`0xd060C2c2693cf07A7D74604CbcB390bf61dA485b`](https://bscscan.com/address/0xd060C2c2693cf07A7D74604CbcB390bf61dA485b) | Timelock `CANCELLER_ROLE` (emergency cancel of scheduled upgrades) |
+| Guardian | [`0xd060C2c2693cf07A7D74604CbcB390bf61dA485b`](https://bscscan.com/address/0xd060C2c2693cf07A7D74604CbcB390bf61dA485b) | Timelock `CANCELLER_ROLE` (emergency cancel of scheduled upgrades) + `PAUSER_ROLE` (`pause()` / `unpause()` since v1.2; threshold being raised to multisig) |
 | Rescuer | [`0x0574c14AADb0185Afe257B147dD2Ec258D912BB1`](https://bscscan.com/address/0x0574c14AADb0185Afe257B147dD2Ec258D912BB1) | `RESCUER_ROLE` (recover non-PARK ERC-20 / native asset sent by mistake; cannot touch PARK) |
 | Vesting | [`0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5`](https://bscscan.com/address/0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5) | no contract role — operational custody for the vesting layer (Sablier streams + platform distribution); ordinary token holder |
 
@@ -39,8 +39,8 @@ Guardian Safe can cancel within the window.
 `TIMELOCK_ADMIN_ROLE` is self-administered by the Timelock — `DEFAULT_ADMIN`
 cannot grant itself upgrade authority.
 
-**Planned v1.2 delta:** add `PAUSER_ROLE`, `pause()`, and `unpause()` only.
-`mint`, freeze/blocklist, wipe/admin force-burn remain absent.
+**v1.2 (live):** `PAUSER_ROLE` + `pause()` / `unpause()` added. `mint`,
+freeze/blocklist, wipe/admin force-burn remain absent.
 
 **Executed governance actions**
 
@@ -60,6 +60,12 @@ cannot grant itself upgrade authority.
   `ParkTokenV1_1` at `0x885C40D264B31487d56d5391b74BCced48a9ba0A`; `mint()` is
   absent and supply is strictly non-increasing after genesis. Execute tx
   [`0x5810191a…a1c9`](https://bscscan.com/tx/0x5810191af17eed2592181b95d1a0136df40b349750ead19a06940a4dd503a1c9).
+- **2026-06-22** — Stage 2 MEXC upgrade executed: proxy implementation moved to
+  `ParkTokenV1_2` at `0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE`; adds
+  `PAUSER_ROLE` + `pause()` / `unpause()` (held by the Guardian Safe), `mint`
+  still absent, supply/cap unchanged. Schedule Safe tx `0x035e0582…f094ff` (3/3);
+  execute tx
+  [`0xf068b84a…7292e`](https://bscscan.com/tx/0xf068b84ad430f55a9aaa82edae71ed8cc110add1cb12b0980626858f5c77292e).
 
 ## Audit
 
