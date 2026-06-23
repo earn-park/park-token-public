@@ -7,6 +7,7 @@
 | `contracts/ParkToken.sol` | Main token contract — full audit |
 | `contracts/ParkTokenV1_1.sol` | Stage 1 MEXC upgrade — removes `mint()` while preserving storage and UUPS |
 | `contracts/ParkTokenV1_2.sol` | Stage 2 MEXC upgrade — adds `PAUSER_ROLE` + `pause`/`unpause` only; no mint/freeze/blocklist/wipe |
+| `contracts/ParkTokenV2.sol` | Stage 3 MEXC upgrade (TERMINAL) — public `upgradeToAndCall` reverts `UpgradeabilityRenounced()` (selector `0x54c0b5e6`) → upgradeability permanently renounced; no new storage, no reinitializer; v1.2 surface retained |
 | `contracts/imports/TimelockControllerImport.sol` | Wrapper around OZ TimelockController v5.6.1 (thin subclass with no added logic — forwards constructor args verbatim) |
 | `contracts/imports/ERC1967ProxyImport.sol` | Wrapper around OZ ERC1967Proxy v5.6.1 (thin subclass with no added logic — forwards constructor args verbatim) |
 | `scripts/deploy/base/deploy-bsc.ts` | Deploy pipeline — operational review (correctness of post-deploy assertions, no role-leak) |
@@ -62,9 +63,12 @@ baselined** in `docs/BYTECODE-BASELINE.md`. Same Solidity source produces
 divergent metadata bytes between toolchains (compiler-injected metadata
 hash differs), so the file lists six rows — Foundry + Hardhat for each of
 `ParkToken`, `ParkERC1967Proxy`, `ParkTimelockController`, and every production
-upgrade implementation such as `ParkTokenV1_1` / `ParkTokenV1_2`.
+upgrade implementation such as `ParkTokenV1_1` / `ParkTokenV1_2` / `ParkTokenV2`.
 `scripts/repro.sh` asserts every row and exits non-zero on any drift. Do not
-submit a V1.2 exchange/audit packet until `ParkTokenV1_2` rows are present.
+submit an exchange/audit packet until that version's rows are present. The
+Foundry rows for the upgrade impls are CI-Linux values (Foundry bakes the
+absolute source path into the metadata trailer — see `docs/BYTECODE-BASELINE.md`);
+the Hardhat rows are environment-independent.
 
 ## Compiler invariants
 
@@ -116,3 +120,17 @@ Areas where we consider audit attention most valuable:
    callable only through Timelock/`UPGRADER_ROLE`, rejects zero address,
    grants exactly one approved pauser Safe, and cannot be claimed by an
    arbitrary caller after an empty-data upgrade.
+
+8. **V2 terminal renounce (`ParkTokenV2`)** — verify the renounce is total and
+   correct: overriding only the public `upgradeToAndCall` to revert
+   `UpgradeabilityRenounced()` is sufficient because it is the sole public upgrade
+   entrypoint in OZ v5 (`upgradeTo` removed) and `_authorizeUpgrade` /
+   `_upgradeToAndCallUUPS` have no other caller — so the ERC-1967 impl slot can
+   never be rewritten. `_authorizeUpgrade` is deliberately left inherited
+   (overriding it would emit an unreachable-code warning in the vendored base and
+   adds no security). Verify no other path (proxiableUUID, initializer re-entry,
+   delegatecall) can set the slot, and that pause/roles/burn/permit/rescue/metadata
+   still work post-renounce. **Naming waiver:** the custom error
+   `UpgradeabilityRenounced()` is intentionally un-prefixed to match the entire
+   public lineage (`ZeroPauser`, `ZeroUpgrader`, … — none `Park`-prefixed);
+   renaming would also change the selector that the on-chain renounce proof pins.

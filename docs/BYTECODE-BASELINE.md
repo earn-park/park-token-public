@@ -54,6 +54,16 @@ Hardhat deployed-bytecode hashes for the exact public source commit.
 |---|---|---|
 | `ParkTokenV1_2` (Foundry) | foundry 1.5.1-stable | **PENDING (CI-Linux) — Foundry bakes the absolute source path into the metadata trailer; capture from the `ubuntu-22.04` `repro.sh` run, not a local non-Linux build** |
 | `ParkTokenV1_2` (Hardhat) | hardhat 3.4.1 | `0x0a0f115c17a0c05ed47dd7862544e64e1b9b1b22ba4a6d7edf3a4585f4be8186` |
+| `ParkTokenV2` (Foundry) | foundry 1.5.1-stable | **PENDING (CI-Linux) — path-dependent metadata trailer; capture from the `ubuntu-22.04` `repro.sh` run** |
+| `ParkTokenV2` (Hardhat) | hardhat 3.4.1 | `0x333d61c6e4058f78841639e66411caacbf43db4c7f151b2bc3b0499c6769f4bd` |
+
+> **Status (2026-06-23):** `ParkTokenV2` (terminal renounce, `v2.0.0`) deployed to
+> BSC at `0x56bf859C87113067327A9B2953C060ea5D0B2e5F`, BscScan-verified from public
+> commit (PR #46). Hardhat hash locked (above); Foundry row CI-Linux-gated.
+> Like every UUPS impl, the on-chain runtime carries the `__self` immutable (the
+> impl's own address), so the on-chain code keccak differs from the artifact
+> `deployedBytecode` keccak above; reproducibility is asserted against the
+> artifact hash (immutable is a zero placeholder there) + the BscScan match.
 
 If your `forge --version` SHA differs from `b0a9dd9c`, hashes WILL drift — pin
 to the exact toolchain via `foundryup --version b0a9dd9c` for reproducibility.
