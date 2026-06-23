@@ -3,14 +3,14 @@
 Canonical production deployment addresses for PARK Token. Verify every address
 against BscScan / Sourcify before integrating.
 
-## BNB Smart Chain (chainId 56) — PRODUCTION v1.2.0
+## BNB Smart Chain (chainId 56) — PRODUCTION v2.0.0 (TERMINAL — upgradeability renounced)
 
 | Component | Address |
 |---|---|
 | **PARK Token (proxy)** | [`0xbc6829B26f0Bed03239E016ff11009c188844a8E`](https://bscscan.com/address/0xbc6829B26f0Bed03239E016ff11009c188844a8E) |
-| Implementation (`ParkTokenV1_2`) | [`0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE`](https://bscscan.com/address/0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE) |
-| Previous implementation (`ParkTokenV1_1` v1.1.0) | [`0x885C40D264B31487d56d5391b74BCced48a9ba0A`](https://bscscan.com/address/0x885C40D264B31487d56d5391b74BCced48a9ba0A) |
-| Timelock (`ParkTimelockController`, 15m minDelay during MEXC upgrade sequence) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) |
+| Implementation (`ParkTokenV2`, **terminal**) | [`0x56bf859C87113067327A9B2953C060ea5D0B2e5F`](https://bscscan.com/address/0x56bf859C87113067327A9B2953C060ea5D0B2e5F) |
+| Previous implementation (`ParkTokenV1_2` v1.2.0) | [`0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE`](https://bscscan.com/address/0x59c0E0d4B4Ea85CdA57a8E524aEd1D429f8831eE) |
+| Timelock (`ParkTimelockController`) | [`0x64113a560c17c699aaf30d6d953af22c2c3bd05a`](https://bscscan.com/address/0x64113a560c17c699aaf30d6d953af22c2c3bd05a) — retains no upgrade power (impl renounced) |
 
 **Token parameters**
 
@@ -19,7 +19,7 @@ against BscScan / Sourcify before integrating.
 | Name / Symbol | PARK Token / PARK |
 | Decimals | **6** (non-standard — scale raw amounts by 10^6, not 10^18) |
 | Total supply / cap | 1,000,000,000 PARK cap; `mint()` removed in v1.1, so supply is strictly non-increasing after genesis |
-| Standard | ERC-20 + ERC-2612 (permit) + capped + burnable + pausable + UUPS (ERC-1822) |
+| Standard | ERC-20 + ERC-2612 (permit) + capped + burnable + pausable; UUPS (ERC-1822) **upgradeability permanently renounced** in v2.0.0 (`upgradeToAndCall` reverts `UpgradeabilityRenounced()`, selector `0x54c0b5e6`) |
 | Proxy pattern | ERC-1967 via ZeframLou CREATE3 factory `0x6aA3D87e99286946161dCA02B97C5806fC5eD46F` |
 | Salt | `keccak256("earnpark.parktoken.production.v1.proxy")` = `0x254ebb2bc1f56bd48ad3e36bc84029801f26da7cf0da0862279fa96710ebf884` |
 
@@ -33,14 +33,16 @@ against BscScan / Sourcify before integrating.
 | Rescuer | [`0x0574c14AADb0185Afe257B147dD2Ec258D912BB1`](https://bscscan.com/address/0x0574c14AADb0185Afe257B147dD2Ec258D912BB1) | `RESCUER_ROLE` (recover non-PARK ERC-20 / native asset sent by mistake; cannot touch PARK) |
 | Vesting | [`0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5`](https://bscscan.com/address/0xAeF5e817e5696E2f2ac2447b12AbD779A784F0d5) | no contract role — operational custody for the vesting layer (Sablier streams + platform distribution); ordinary token holder |
 
-UUPS upgrades are gated by the Timelock (`UPGRADER_ROLE`). During the MEXC
-upgrade sequence the delay is 15 minutes; the Admin Safe proposes and the
-Guardian Safe can cancel within the window.
-`TIMELOCK_ADMIN_ROLE` is self-administered by the Timelock — `DEFAULT_ADMIN`
-cannot grant itself upgrade authority.
+**Upgradeability is permanently renounced (v2.0.0, 2026-06-23).** The proxy's
+`upgradeToAndCall` reverts `UpgradeabilityRenounced()` — no implementation can
+ever replace `ParkTokenV2`. The Timelock still holds `UPGRADER_ROLE` as an inert
+artifact, but there is no reachable path to rewrite the ERC-1967 implementation
+slot. AccessControl is unaffected: `DEFAULT_ADMIN` can still rotate
+`PAUSER_ROLE` / `RESCUER_ROLE` and set metadata.
 
-**v1.2 (live):** `PAUSER_ROLE` + `pause()` / `unpause()` added. `mint`,
-freeze/blocklist, wipe/admin force-burn remain absent.
+**v2.0.0 (live):** terminal. No `mint` (since v1.1), `pause` / `unpause` under
+`PAUSER_ROLE` (since v1.2), upgradeability renounced (v2.0.0). No
+freeze/blocklist, no wipe/admin force-burn, no supply-increasing path.
 
 **Executed governance actions**
 
@@ -66,6 +68,14 @@ freeze/blocklist, wipe/admin force-burn remain absent.
   still absent, supply/cap unchanged. Schedule Safe tx `0x035e0582…f094ff` (3/3);
   execute tx
   [`0xf068b84a…7292e`](https://bscscan.com/tx/0xf068b84ad430f55a9aaa82edae71ed8cc110add1cb12b0980626858f5c77292e).
+- **2026-06-23** — Stage 3 MEXC upgrade executed (TERMINAL): proxy implementation
+  moved to `ParkTokenV2` at `0x56bf859C87113067327A9B2953C060ea5D0B2e5F`;
+  **UUPS upgradeability permanently renounced** (`upgradeToAndCall` reverts
+  `UpgradeabilityRenounced()`, selector `0x54c0b5e6`). No reinitializer (empty
+  data); `mint` absent, pause retained, supply/cap unchanged. Schedule Safe tx
+  `0xe9282c99…2ae1` (3/3); execute tx
+  [`0xf8abdf05…32e0`](https://bscscan.com/tx/0xf8abdf059c8256de887c7e5d590aaf8a2bd1a7ee9c0307a85879a9d3cce332e0).
+  Satisfies the MEXC listing requirement to renounce upgradeability.
 
 ## Audit
 
